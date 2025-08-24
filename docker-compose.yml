@@ -1,0 +1,14 @@
+services:
+  bot:
+    build: .
+    ports:
+      - "8000:8000"
+    env_file: .env
+    restart: unless-stopped
+    environment:
+      - HF_HOME=/app/storage_simple/hf_cache
+    volumes:
+      - ./storage_simple:/app/storage_simple
+      - ./scripts:/app/scripts
+      - ./storage_pdfs:/app/storage_pdfs   # <-- añade esta línea
+      - ./app:/app/app
