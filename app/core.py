@@ -173,10 +173,15 @@ def _buscar_por_nivel_y_tema(texto_norm: str, limit: int = 5) -> Optional[str]:
             if ident not in seen:
                 seen.add(ident); unicos.append(p)
         mostrados = unicos[:limit]
+
+        # 🔢 numerado para que se vean 2..5 claramente
+        tarjetas = []
+        for i, p in enumerate(mostrados, 1):
+            tarjetas.append(f"{i}. " + _card_header(p).lstrip("• ").strip())
+
         r = "📌 Programas encontrados (por nivel y tema):\n\n"
-        r += "\n\n".join(_card_header(p) for p in mostrados) + "\n\n"
-        r += "ℹ️ Pide detalle con el **código**. Ejemplos:\n"
-        r += "   Requisitos 134104  ·  Duración 134104  ·  Perfil 134104\n"
+        r += "\n\n".join(tarjetas) + "\n\n"
+        r += "ℹ️ Pide detalle con el **código** o responde **1–5** para elegir.\n"
         if len(unicos) > limit:
             r += "Escribe *más* o *ver todos* para ver más resultados."
         return r
@@ -197,6 +202,12 @@ def _buscar_por_nivel_y_tema(texto_norm: str, limit: int = 5) -> Optional[str]:
             if ident not in seen:
                 seen.add(ident); unicos.append(p)
         mostrados = unicos[:limit]
+
+        # 🔢 numerado para que se vean 2..5 claramente
+        tarjetas = []
+        for i, p in enumerate(mostrados, 1):
+            tarjetas.append(f"{i}. " + _card_header(p).lstrip("• ").strip())
+        
         nl = nivel.upper()
         r = (f"❕ No tengo programas **{nl}** sobre **{tema_norm}** en este momento.\n"
              f"Pero encontré opciones en **otros niveles**:\n\n")
@@ -233,8 +244,6 @@ def buscar_programas_json(mensaje: str, show_all: bool = False, limit: int = 5) 
     # Stopwords simples para queries conversacionales
     stop = {"sobre","de","en","del","la","el","los","las","para","y","o","un","una","unos","unas"}
     toks = [t for t in _tokens(m_norm) if t not in stop]
-
-
 
     # Filtros por nivel y horario (conversacionales)
     nivel_keys = {"tecnico": "tecnico", "tecnologo": "tecnologo", "operario": "operario", "auxiliar": "auxiliar"}
