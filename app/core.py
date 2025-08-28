@@ -108,7 +108,7 @@ def _best_program_by_text(m_norm: str) -> Optional[Dict[str, Any]]:
 # Búsqueda por "nivel + sobre/en/de + tema"
 # ---------------------------------------------------------------------
 TOPIC_SYNONYMS = {
-    "mecanica": ["mecanica","automotor","motocicleta","mecatron","mantenimiento", "moto","motos],
+    "mecanica": ["mecanica","automotor","motocicleta","mecatron","mantenimiento", "moto","motos"],
     "sistemas": ["sistemas","software","programacion","redes","teleinformatica","telecomunicaciones"],
     "electricidad": ["electric","electrico","fotovoltaico","domot"],
     "construccion": ["construccion","arquitectonico","topografia","infraestructura","concreto","edificacion"],
