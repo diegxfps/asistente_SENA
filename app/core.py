@@ -105,6 +105,82 @@ def _best_program_by_text(m_norm: str) -> Optional[Dict[str, Any]]:
     return scored[0][1]
 
 # ---------------------------------------------------------------------
+# Búsqueda por "nivel + sobre/en/de + tema"
+# ---------------------------------------------------------------------
+TOPIC_SYNONYMS = {
+    "mecanica": ["mecanica","automotor","motocicleta","mecatron","mantenimiento", "moto","motos],
+    "sistemas": ["sistemas","software","programacion","redes","teleinformatica","telecomunicaciones"],
+    "electricidad": ["electric","electrico","fotovoltaico","domot"],
+    "construccion": ["construccion","arquitectonico","topografia","infraestructura","concreto","edificacion"],
+    "ambiental": ["ambiental","saneamiento","agua","residuos"],
+    "dibujo": ["dibujo","modelado","arquitectonico","diseño"],
+    "metalmecanica": ["metalmec","soldadura","fabricacion","mecanizado"],
+}
+
+NIVEL_CANON = {
+    "tecnico":"tecnico","tecnicos":"tecnico",
+    "tecnologo":"tecnologo","tecnologos":"tecnologo",
+    "auxiliar":"auxiliar","auxiliares":"auxiliar",
+    "operario":"operario","operarios":"operario",
+}
+
+def _fields_for_topic(p: Dict[str,Any]) -> str:
+    """Texto unificado y normalizado para 'tema' (programa + perfil + competencias)."""
+    base = [p.get("_n_programa","")]
+    perfil = _norm(p.get("perfil_egresado",""))
+    comps = " ".join(_norm(x) for x in (p.get("competencias") or []))
+    base.extend([perfil, comps])
+    return " ".join(base)
+
+def _expand_topic_tokens(topic_tokens: List[str]) -> List[str]:
+    out = set(topic_tokens)
+    for t in list(topic_tokens):
+        for k, syns in TOPIC_SYNONYMS.items():
+            if t.startswith(k) or k.startswith(t):
+                out.update(syns)
+    return list(out)
+
+TOPIC_RE = re.compile(r"^\s*(tecnico[s]?|tecnologo[s]?|auxiliar[es]?|operario[s]?)\s+(sobre|en|de)\s+(.+)$", re.I)
+
+def _buscar_por_nivel_y_tema(texto_norm: str, limit: int = 5) -> Optional[str]:
+    m = TOPIC_RE.match(texto_norm)
+    if not m:
+        return None
+    nivel_raw, _, tema = m.groups()
+    nivel = NIVEL_CANON.get(_norm(nivel_raw), None)
+    if not nivel:
+        return None
+    topic_tokens = _expand_topic_tokens(_tokens(_norm(tema)))
+
+    candidatos = []
+    for p in PROGRAMAS:
+        if nivel not in _norm(p.get("nivel","")):
+            continue
+        hay = _fields_for_topic(p)
+        if any(tok in hay for tok in topic_tokens):
+            candidatos.append(p)
+
+    if not candidatos:
+        return None
+
+    # Unicidad + tope y formato con tus tarjetas
+    seen, unicos = set(), []
+    for p in candidatos:
+        ident = f"{p.get('programa','')}|{p.get('codigo') or p.get('codigo_ficha') or p.get('no')}"
+        if ident not in seen:
+            seen.add(ident); unicos.append(p)
+    mostrados = unicos[:limit]
+
+    r = "📌 Programas encontrados (por nivel y tema):\n\n"
+    r += "\n\n".join(_card_header(p) for p in mostrados) + "\n\n"
+    r += "ℹ️ Pide detalle con el **código**. Ejemplos:\n"
+    r += "   Requisitos 134104  ·  Duración 134104  ·  Perfil 134104\n"
+    if len(unicos) > limit:
+        r += "Escribe *más* o *ver todos* para ver más resultados."
+    return r
+
+
+# ---------------------------------------------------------------------
 # Búsquedas de lista
 # ---------------------------------------------------------------------
 
