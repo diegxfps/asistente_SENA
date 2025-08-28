@@ -200,7 +200,9 @@ def buscar_programas_json(mensaje: str, show_all: bool = False, limit: int = 5) 
         return "⚠️ Base de datos no disponible en este momento."
 
     m_norm = _norm(mensaje)
-    toks = _tokens(m_norm)
+    stop = {"sobre","de","en","del","la","el","los","las","para"}
+    toks = [t for t in _tokens(m_norm) if t not in stop]
+
 
     # Filtros por nivel y horario (conversacionales)
     nivel_keys = {"tecnico": "tecnico", "tecnologo": "tecnologo", "operario": "operario", "auxiliar": "auxiliar"}
@@ -474,6 +476,12 @@ def generar_respuesta(mensaje: str, show_all: bool = False) -> str:
     intent = _detect_intent(m_norm)
     if intent:
         return responder_detalle(intent, m_norm)
+
+    # Búsqueda explícita: "<nivel> sobre|en|de <tema>"
+    resp_nivel_tema = _buscar_por_nivel_y_tema(m_norm, limit=5)
+    if resp_nivel_tema:
+        return resp_nivel_tema
+
 
     # Lista de programas
     return buscar_programas_json(m_norm, show_all=show_all, limit=5)
