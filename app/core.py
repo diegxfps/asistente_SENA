@@ -108,14 +108,16 @@ def _best_program_by_text(m_norm: str) -> Optional[Dict[str, Any]]:
 # Búsqueda por "nivel + sobre/en/de + tema"
 # ---------------------------------------------------------------------
 TOPIC_SYNONYMS = {
-    "mecanica": ["mecanica","automotor","motocicleta","mecatron","mantenimiento", "moto","motos"],
-    "sistemas": ["sistemas","software","programacion","redes","teleinformatica","telecomunicaciones"],
-    "electricidad": ["electric","electrico","fotovoltaico","domot"],
-    "construccion": ["construccion","arquitectonico","topografia","infraestructura","concreto","edificacion"],
-    "ambiental": ["ambiental","saneamiento","agua","residuos"],
-    "dibujo": ["dibujo","modelado","arquitectonico","diseño"],
-    "metalmecanica": ["metalmec","soldadura","fabricacion","mecanizado"],
+    "mecanica": ["mecanica","mecánica","automotor","motocic","mecatronica","mantenimiento","vehiculo","vehículos","moto","motos"],
+    "sistemas": ["sistemas","software","programacion","programación","redes","teleinformatica","telecomunicaciones"],
+    "electricidad": ["electricidad","electrico","eléctrico","fotovoltaica","domot","industrial"],
+    "construccion": ["construccion","construcción","arquitectonica","topografia","infraestructura","concreto","edificacion"],
+    "ambiental": ["ambiental","saneamiento","agua","residuos","medio ambiente"],
+    "dibujo": ["dibujo","modelado","arquitectonica","cad"],
+    "metalmecanica": ["metalmec","soldadura","fabricacion","soldadura","mecanizado"],
+    "cocina": ["cocina","gastronomia","gastronomía","culinaria","chef","alimentos","alimentación"],
 }
+
 
 NIVEL_CANON = {
     "tecnico":"tecnico","tecnicos":"tecnico",
