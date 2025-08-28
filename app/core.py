@@ -152,34 +152,64 @@ def _buscar_por_nivel_y_tema(texto_norm: str, limit: int = 5) -> Optional[str]:
     nivel = NIVEL_CANON.get(_norm(nivel_raw), None)
     if not nivel:
         return None
-    topic_tokens = _expand_topic_tokens(_tokens(_norm(tema)))
 
-    candidatos = []
+    tema_norm = _norm(tema)
+    topic_tokens = _expand_topic_tokens(_tokens(tema_norm))
+
+    # 1) Intento estricto: nivel + tema
+    en_nivel = []
     for p in PROGRAMAS:
         if nivel not in _norm(p.get("nivel","")):
             continue
         hay = _fields_for_topic(p)
         if any(tok in hay for tok in topic_tokens):
-            candidatos.append(p)
+            en_nivel.append(p)
 
-    if not candidatos:
-        return None
+    # 1.a) Hay resultados en el nivel pedido → mostrar normal
+    if en_nivel:
+        seen, unicos = set(), []
+        for p in en_nivel:
+            ident = f"{p.get('programa','')}|{p.get('codigo') or p.get('codigo_ficha') or p.get('no')}"
+            if ident not in seen:
+                seen.add(ident); unicos.append(p)
+        mostrados = unicos[:limit]
+        r = "📌 Programas encontrados (por nivel y tema):\n\n"
+        r += "\n\n".join(_card_header(p) for p in mostrados) + "\n\n"
+        r += "ℹ️ Pide detalle con el **código**. Ejemplos:\n"
+        r += "   Requisitos 134104  ·  Duración 134104  ·  Perfil 134104\n"
+        if len(unicos) > limit:
+            r += "Escribe *más* o *ver todos* para ver más resultados."
+        return r
 
-    # Unicidad + tope y formato con tus tarjetas
-    seen, unicos = set(), []
-    for p in candidatos:
-        ident = f"{p.get('programa','')}|{p.get('codigo') or p.get('codigo_ficha') or p.get('no')}"
-        if ident not in seen:
-            seen.add(ident); unicos.append(p)
-    mostrados = unicos[:limit]
+    # 2) Sin resultados en el nivel → buscar el mismo tema en otros niveles
+    otros_niveles = []
+    for p in PROGRAMAS:
+        # ignora nivel para ver si el tema existe en la base
+        hay = _fields_for_topic(p)
+        if any(tok in hay for tok in topic_tokens):
+            otros_niveles.append(p)
 
-    r = "📌 Programas encontrados (por nivel y tema):\n\n"
-    r += "\n\n".join(_card_header(p) for p in mostrados) + "\n\n"
-    r += "ℹ️ Pide detalle con el **código**. Ejemplos:\n"
-    r += "   Requisitos 134104  ·  Duración 134104  ·  Perfil 134104\n"
-    if len(unicos) > limit:
-        r += "Escribe *más* o *ver todos* para ver más resultados."
-    return r
+    if otros_niveles:
+        # Mostrar microcopy claro + sugerencias de otros niveles
+        seen, unicos = set(), []
+        for p in otros_niveles:
+            ident = f"{p.get('programa','')}|{p.get('codigo') or p.get('codigo_ficha') or p.get('no')}"
+            if ident not in seen:
+                seen.add(ident); unicos.append(p)
+        mostrados = unicos[:limit]
+        nl = nivel.upper()
+        r = (f"❕ No tengo programas **{nl}** sobre **{tema_norm}** en este momento.\n"
+             f"Pero encontré opciones en **otros niveles**:\n\n")
+        r += "\n\n".join(_card_header(p) for p in mostrados) + "\n\n"
+        r += "ℹ️ Si quieres, pide por **nivel** (técnico/tecnólogo/auxiliar/operario) o por **municipio**.\n"
+        return r
+
+    # 3) No existe ese tema en la base → microcopy específico (sin ruido)
+    temas_sugeridos = "mecánica, sistemas, electricidad, construcción, ambiental, dibujo, metalmecánica"
+    nl = nivel.upper()
+    return (f"❌ No encuentro programas **{nl}** sobre **{tema_norm}** en la base.\n"
+            f"Temas frecuentes: {temas_sugeridos}.\n"
+            f"También puedes buscar por municipio o sede (ej.: *popayán {nivel}*).")
 
 
 # ---------------------------------------------------------------------
@@ -200,8 +230,10 @@ def buscar_programas_json(mensaje: str, show_all: bool = False, limit: int = 5) 
         return "⚠️ Base de datos no disponible en este momento."
 
     m_norm = _norm(mensaje)
-    stop = {"sobre","de","en","del","la","el","los","las","para"}
+    # Stopwords simples para queries conversacionales
+    stop = {"sobre","de","en","del","la","el","los","las","para","y","o","un","una","unos","unas"}
     toks = [t for t in _tokens(m_norm) if t not in stop]
+
 
 
     # Filtros por nivel y horario (conversacionales)
@@ -233,39 +265,24 @@ def buscar_programas_json(mensaje: str, show_all: bool = False, limit: int = 5) 
                 continue
         resultados.append(p)
 
-        # --- Fallback por NIVEL si no hubo matches por tokens ---
+    # --- Fallback por NIVEL si no hubo matches por tokens ---
     if not resultados and desired_level:
         for p in PROGRAMAS:
             if desired_level in _norm(p.get('nivel','')):
                 resultados.append(p)
 
-    if not resultados:
-        # mismos sinónimos básicos
-        sinonimos = {
-            "informatica": ["software", "programacion", "sistemas", "tic", "computacion"],
-            "tecnologo": ["tecnologo", "tecnologia", "tecnologico", "tecnico"],
-            "administracion": ["gestion", "empresarial", "administrativo"],
-            "alimentos": ["cocina", "gastronomia", "culinaria"],
-            "alto cauca": ["alto", "cauca"],
-        }
-        for clave, lista in sinonimos.items():
-            if clave in m_norm:
-                for p in PROGRAMAS:
-                    if any(w in p.get("_n_programa","") for w in lista):
-                        resultados.append(p)
-                break
-
+    # --- Sin resultados: microcopy honesto, sin sugerencias ruidosas ---
     if not resultados:
         ejemplos = "\n".join(
             [f"• {p.get('programa','(sin nombre)')} ({p.get('nivel','N/A')})"
              for p in PROGRAMAS[:3]]
         )
         return (
-            f"❌ No encontré resultados para “{mensaje}”.\n\n"
-            "🔎 Prueba así:\n"
-            "• popayán técnico / tecnólogo\n"
-            "• alto cauca  \n"
-            "• requisitos 134104  \n\n"
+            f"❌ No encontré coincidencias para “{mensaje}”.\n\n"
+            "Prueba así:\n"
+            "• nombre del programa  ·  nivel (técnico/tecnólogo/auxiliar/operario)\n"
+            "• municipio o sede  ·  horario (mañana/tarde/noche)\n"
+            "• requisitos 134104  ·  duracion 134104\n\n"
             f"Algunos ejemplos:\n{ejemplos}"
         )
 
@@ -441,7 +458,7 @@ def generar_respuesta(mensaje: str, show_all: bool = False) -> str:
     m_norm = _norm(mensaje)
 
     # Saludos con guía corta
-    if any(p in m_norm for p in ["hola", "buenos dias", "buenas tardes", "saludos", "hi", "hello","hla","bnas", "Buenas"]):
+    if any(p in m_norm for p in ["hola", "buenos dias", "buenas tardes", "saludos", "hi", "hello","hla","bnas", "buenas"]):
         return (
             "👋 ¡Hola! Soy tu asistente SENA.\n\n"
             "🔎 ¿Qué deseas buscar?\n"
@@ -471,16 +488,16 @@ def generar_respuesta(mensaje: str, show_all: bool = False) -> str:
             return f"❌ No encontré el código {code} en la base."
         return _ficha_completa(prog)
 
+    # Búsqueda explícita: "<nivel> sobre|en|de <tema>"
+    resp_nivel_tema = _buscar_por_nivel_y_tema(m_norm, limit=5)
+    if resp_nivel_tema:
+        return resp_nivel_tema
 
     # Intención de detalle
     intent = _detect_intent(m_norm)
     if intent:
         return responder_detalle(intent, m_norm)
 
-    # Búsqueda explícita: "<nivel> sobre|en|de <tema>"
-    resp_nivel_tema = _buscar_por_nivel_y_tema(m_norm, limit=5)
-    if resp_nivel_tema:
-        return resp_nivel_tema
 
 
     # Lista de programas
