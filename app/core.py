@@ -219,8 +219,8 @@ def _buscar_por_nivel_y_tema(texto_norm: str, limit: int = 5) -> Optional[str]:
         for i, p in enumerate(mostrados, 1):
             tarjetas.append(f"{i}. " + _card_header(p).lstrip("• ").strip())
 
-        r += "ℹ️ Pide detalle con el **código** o responde **1–5** para elegir.\n"
-        r = "📌 Programas encontrados (por nivel y tema):\n\n"
+        r = "ℹ️ Pide detalle con el **código** o responde **1–5** para elegir.\n"
+        r += "📌 Programas encontrados (por nivel y tema):\n\n"
         r += "\n\n".join(tarjetas) + "\n\n"
         if len(unicos) > limit:
             r += "Escribe *más* o *ver todos* para ver más resultados."
@@ -382,11 +382,11 @@ def buscar_programas_json(mensaje: str, show_all: bool = False, limit: int = 5) 
     for i, p in enumerate(mostrados, 1):
         tarjetas.append(f"{i}. " + _card_header(p).lstrip("• ").strip())
     
-    r += "ℹ️ Pide detalle con el **código**. Ejemplos:\n"
+    r = "ℹ️ Pide detalle con el **código**. Ejemplos:\n"
     r += "   Requisitos [código]  ·  Duración [código]  ·  Perfil [código]\n"
     r += "·  Si deseas toda la información del programa puedes escribir el código\n\n"
     
-    r = "📌 Programas encontrados:\n\n" + "\n\n".join(tarjetas) + "\n\n"
+    r += "📌 Programas encontrados:\n\n" + "\n\n".join(tarjetas) + "\n\n"
 
     # Pie con guía
 
@@ -580,7 +580,7 @@ def generar_respuesta(mensaje: str, show_all: bool = False) -> str:
             "🔎 ¿Qué deseas buscar?\n"
             "• Puedo darte brindarte información sobre tecnicos, tecnologos, operarios y/o auxiliares.\n"
             "• Puedes buscar: la titulación y tema de tu interés\n"
-            "por ejemplo: tecnologos en sistemas"
+            "por ejemplo: tecnologos en sistemas\n"
             "💡 Tips: si ves muchos resultados escribe *más* o *ver todos*.\n\n"
             "• Para saber más sobre cómo preguntar escribe 'ayuda'"
         )
