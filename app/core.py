@@ -171,6 +171,21 @@ def _buscar_por_nivel_y_tema(texto_norm: str, limit: int = 5) -> Optional[str]:
     nivel = NIVEL_CANON.get(_norm(nivel_raw), None)
     if not nivel:
         return None
+    # 🚫 Si el "tema" parece una ubicación (municipio/sede), no aplicar modo nivel+tema
+    tema_n = _norm(tema)
+    # 1) match directo por cadena
+    if any(
+        (tema_n and (tema_n in p.get("_n_municipio","") or tema_n in p.get("_n_sede","")))
+        for p in PROGRAMAS
+    ):
+        return None
+    # 2) o por tokens (ej. "la casona", "alto cauca")
+    tema_toks = set(_tokens(tema_n))
+    if tema_toks:
+        for p in PROGRAMAS:
+            loc_toks = set(_tokens(p.get("_n_municipio",""))) | set(_tokens(p.get("_n_sede","")))
+            if tema_toks & loc_toks:
+                return None
 
     tema_norm = _norm(tema)
     topic_tokens = _expand_topic_tokens(_tokens(tema_norm))
@@ -309,8 +324,10 @@ def buscar_programas_json(mensaje: str, show_all: bool = False, limit: int = 5) 
 
     # Fallback: si no hubo matches por tokens pero sí hay un nivel pedido → listar por nivel
     if not resultados and desired_level:
-        for p in PROGRAMAS:
-            if desired_level in _norm(p.get('nivel','')):
+    for p in PROGRAMAS:
+        if desired_level in _norm(p.get('nivel','')):
+            hay = " ".join([p.get("_n_programa",""), p.get("_n_municipio",""), p.get("_n_sede",""), p.get("_n_codigo","")])
+            if all(t in hay for t in toks):
                 resultados.append(p)
 
     # Sin resultados: microcopy honesto (sin sugerencias ruidosas)
