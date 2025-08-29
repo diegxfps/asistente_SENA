@@ -94,6 +94,23 @@ def incoming():
         text_norm = _norm_simple(text)
         st = STATE.get(from_number, {})
 
+        # ----------------- Selección por "<codigo>-<n>" (variante enumerada) -----------------
+        m_code_idx = re.fullmatch(r"\s*(\d{5,7})-(\d{1,2})\s*", text_norm or "")
+        if m_code_idx and st.get("candidates_ext"):  # candidates_ext: lista de dicts con {"code","ord"}
+            base, ord_str = m_code_idx.groups()
+            ord_n = int(ord_str)
+            # busca en el último listado una entrada que coincida code+ordinal
+            for item in st["candidates_ext"]:
+                if item.get("code") == base and item.get("ord") == ord_n:
+                    code = item.get("code")
+                    st["last_code"] = code
+                    STATE[from_number] = st
+                    respuesta = ficha_por_codigo(code)
+                    send_whatsapp_message(to=from_number, body=respuesta)
+                    return "ok", 200
+            # si no encuentra match exacto, ignora y sigue flujo normal
+
+        
         # ----------------- Selección numerada (1..5) tras lista ambigua -----------------
         if re.fullmatch(r"[1-5]", text_norm or "") and st.get("candidates"):
             idx = int(text_norm) - 1
@@ -124,6 +141,27 @@ def incoming():
 
             # Guardar contexto mínimo
             STATE[from_number] = {"last_query": text_norm}
+            
+            # --- Extraer candidatos en el mismo orden mostrado (hasta 5) ---
+            # Buscamos líneas enumeradas "1. " ... "5. " y extraemos el código que aparece entre "Código [XXXXX]"
+            candidates_ext = []
+            lines = (respuesta or "").splitlines()
+            per_code_count = {}  # para ordinal por código: { "134104": 1, ... }
+            for ln in lines:
+                m_item = re.match(r"\s*(\d+)\.\s+(.+)", ln)  # línea de ítem "1. ..."
+                if not m_item:
+                    continue
+                # intenta extraer código dentro del encabezado
+                m_code = re.search(r"C[oó]digo\s*\[(\d{5,7})\]", ln, flags=re.I)
+                if not m_code:
+                    continue
+                code = m_code.group(1)
+                per_code_count[code] = per_code_count.get(code, 0) + 1
+                candidates_ext.append({"code": code, "ord": per_code_count[code]})
+                if len(candidates_ext) >= 5:
+                    break
+            if candidates_ext:
+                STATE[from_number]["candidates_ext"] = candidates_ext
 
                       # --- Si la consulta es "nivel + (sobre|en|de) + tema", guardamos candidates específicos ---
             m_topic = TOPIC_RE.match(text_norm)
