@@ -188,7 +188,13 @@ def _buscar_por_nivel_y_tema(texto_norm: str, limit: int = 5) -> Optional[str]:
     if en_nivel:
         seen, unicos = set(), []
         for p in en_nivel:
-            ident = f"{p.get('programa','')}|{p.get('codigo') or p.get('codigo_ficha') or p.get('no')}"
+            ident = "|".join([
+                p.get('programa',''),
+                str(p.get('codigo') or p.get('codigo_ficha') or p.get('no') or ''),
+                _norm(p.get('municipio','')),
+                _norm(p.get('sede','')),
+                _norm(p.get('horario','')),
+            ])
             if ident not in seen:
                 seen.add(ident); unicos.append(p)
         mostrados = unicos[:limit]
@@ -219,7 +225,13 @@ def _buscar_por_nivel_y_tema(texto_norm: str, limit: int = 5) -> Optional[str]:
         # Mostrar microcopy claro + sugerencias de otros niveles
         seen, unicos = set(), []
         for p in otros_niveles:
-            ident = f"{p.get('programa','')}|{p.get('codigo') or p.get('codigo_ficha') or p.get('no')}"
+            ident = "|".join([
+                p.get('programa',''),
+                str(p.get('codigo') or p.get('codigo_ficha') or p.get('no') or ''),
+                _norm(p.get('municipio','')),
+                _norm(p.get('sede','')),
+                _norm(p.get('horario','')),
+            ])
             if ident not in seen:
                 seen.add(ident); unicos.append(p)
         mostrados = unicos[:limit]
@@ -320,7 +332,13 @@ def buscar_programas_json(mensaje: str, show_all: bool = False, limit: int = 5) 
     seen = set()
     unicos: List[Dict[str, Any]] = []
     for p in resultados:
-        ident = f"{p.get('programa','')}|{p.get('codigo') or p.get('codigo_ficha') or p.get('no')}"
+        ident = "|".join([
+            p.get('programa',''),
+            str(p.get('codigo') or p.get('codigo_ficha') or p.get('no') or ''),
+            _norm(p.get('municipio','')),
+            _norm(p.get('sede','')),
+            _norm(p.get('horario','')),
+        ])
         if ident not in seen:
             seen.add(ident)
             unicos.append(p)
@@ -613,7 +631,13 @@ def top_codigos_para(mensaje: str, limit: int = 5) -> List[str]:
 
     seen, unicos = set(), []
     for p in candidatos:
-        ident = f"{p.get('programa','')}|{p.get('codigo') or p.get('codigo_ficha') or p.get('no')}"
+        ident = "|".join([
+            p.get('programa',''),
+            str(p.get('codigo') or p.get('codigo_ficha') or p.get('no') or ''),
+            _norm(p.get('municipio','')),
+            _norm(p.get('sede','')),
+            _norm(p.get('horario','')),
+        ])
         if ident not in seen:
             seen.add(ident); unicos.append(p)
 
@@ -627,3 +651,14 @@ def ficha_por_codigo(codigo: str) -> str:
     if not p:
         return f"❌ No encontré el código {codigo} en la base."
     return _ficha_completa(p)
+def ficha_por_codigo_y_ordinal(codigo: str, ordinal: int) -> str:
+    """Devuelve la ficha de la 'ordinal'-ésima ocurrencia de 'codigo' en PROGRAMAS."""
+    codigo_n = _norm(codigo)
+    count = 0
+    for p in PROGRAMAS:
+        code_p = _norm(p.get("codigo") or p.get("codigo_ficha") or p.get("no") or "")
+        if code_p == codigo_n:
+            count += 1
+            if count == ordinal:
+                return _ficha_completa(p)
+    return f"❌ No encontré la variante {codigo}-{ordinal}."
