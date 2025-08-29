@@ -219,9 +219,9 @@ def _buscar_por_nivel_y_tema(texto_norm: str, limit: int = 5) -> Optional[str]:
         for i, p in enumerate(mostrados, 1):
             tarjetas.append(f"{i}. " + _card_header(p).lstrip("• ").strip())
 
+        r += "ℹ️ Pide detalle con el **código** o responde **1–5** para elegir.\n"
         r = "📌 Programas encontrados (por nivel y tema):\n\n"
         r += "\n\n".join(tarjetas) + "\n\n"
-        r += "ℹ️ Pide detalle con el **código** o responde **1–5** para elegir.\n"
         if len(unicos) > limit:
             r += "Escribe *más* o *ver todos* para ver más resultados."
         return r
@@ -293,6 +293,21 @@ def buscar_programas_json(mensaje: str, show_all: bool = False, limit: int = 5) 
     stop = {"sobre","de","en","del","la","el","los","las","para","y","o","un","una","unos","unas"}
     toks = [t for t in _tokens(m_norm) if t not in stop]
 
+    # Detección robusta de nivel por tokens (soporta sing/plural)
+    nivel_map = {
+        "tecnico": "tecnico", "tecnicos": "tecnico",
+        "tecnologo": "tecnologo", "tecnologos": "tecnologo",
+        "operario": "operario", "operarios": "operario",
+        "auxiliar": "auxiliar", "auxiliares": "auxiliar",
+    }
+    desired_level = None
+    for t in list(toks):
+        if t in nivel_map:
+            desired_level = nivel_map[t]
+            toks.remove(t)  # el nivel no debe participar en el AND de campos
+            break
+
+
     # Filtros por nivel y horario (conversacionales)
     nivel_keys = {"tecnico": "tecnico", "tecnologo": "tecnologo", "operario": "operario", "auxiliar": "auxiliar"}
     desired_level = None
@@ -340,8 +355,8 @@ def buscar_programas_json(mensaje: str, show_all: bool = False, limit: int = 5) 
             f"❌ No encontré coincidencias para “{mensaje}”.\n\n"
             "Prueba así:\n"
             "• nombre del programa  ·  nivel (técnico/tecnólogo/auxiliar/operario)\n"
-            "• municipio o sede  ·  horario (mañana/tarde/noche)\n"
-            "• requisitos 134104  ·  duracion 134104\n\n"
+            "• municipio o sede  ·  duracion 134104\n"
+            "• requisitos 134104\n\n"
             f"Algunos ejemplos:\n{ejemplos}"
         )
 
@@ -366,12 +381,14 @@ def buscar_programas_json(mensaje: str, show_all: bool = False, limit: int = 5) 
     tarjetas = []
     for i, p in enumerate(mostrados, 1):
         tarjetas.append(f"{i}. " + _card_header(p).lstrip("• ").strip())
+    
+    r += "ℹ️ Pide detalle con el **código**. Ejemplos:\n"
+    r += "   Requisitos [código]  ·  Duración [código]  ·  Perfil [código]\n"
+    r += "·  Si deseas toda la información del programa puedes escribir el código\n\n"
+    
     r = "📌 Programas encontrados:\n\n" + "\n\n".join(tarjetas) + "\n\n"
 
     # Pie con guía
-    r += "ℹ️ Pide detalle con el **código**. Ejemplos:\n"
-    r += "   Requisitos 134104  ·  Duración 134104  ·  Perfil 134104\n"
-    r += "·  Si deseas toda la información del programa puedes escribir el código\n\n"
 
     if not show_all and len(unicos) > limit:
         r += "¿Te interesa alguno en particular?\n"
@@ -562,7 +579,8 @@ def generar_respuesta(mensaje: str, show_all: bool = False) -> str:
             "👋 ¡Hola! Soy tu asistente SENA.\n\n"
             "🔎 ¿Qué deseas buscar?\n"
             "• Puedo darte brindarte información sobre tecnicos, tecnologos, operarios y/o auxiliares.\n"
-            "• Puedes buscar: tecnólogos sobre sistemas o la titulación y tema de tu interés"
+            "• Puedes buscar: la titulación y tema de tu interés\n"
+            "por ejemplo: tecnologos en sistemas"
             "💡 Tips: si ves muchos resultados escribe *más* o *ver todos*.\n\n"
             "• Para saber más sobre cómo preguntar escribe 'ayuda'"
         )
@@ -572,9 +590,9 @@ def generar_respuesta(mensaje: str, show_all: bool = False) -> str:
         return (
             "Puedo buscar por nombre, nivel, municipio o sede y darte detalles por **código**.\n"
             "Ejemplos:\n"
-            "• 'tecnologo en sistemas'\n"
-            "• 'programas en popayan'\n"
-            "• 'requisitos 134104', 'duracion 134104'\n"
+            "• 'Tecnólogo en sistemas'\n"
+            "• 'Técnico en Popayán'\n"
+            "• 'Requisitos [Código]', 'duracion [Código]'\n"
         )
 
     # 1) Si el usuario envía SOLO un código de 5-7 dígitos → ficha completa
