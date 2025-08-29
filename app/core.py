@@ -306,21 +306,22 @@ def buscar_programas_json(mensaje: str, show_all: bool = False, limit: int = 5) 
 
     mostrados = unicos if show_all else unicos[:limit]
 
+    # Pie con guía
+    r += "ℹ️ Pide detalle con el **código**. Ejemplos:\n"
+    r += "   Requisitos [código]  ·  Duración [código]  ·  Perfil [código]\n"
+    r += "·  *Si deseas toda la información del programa puedes escribir el código*\n\n"
+    
     # Encabezado de la lista
     r = "📌 Programas encontrados:\n\n"
     for p in mostrados:
         r += _card_header(p) + "\n\n"
 
-    # Pie con guía
-    r += "ℹ️ Pide detalle con el **código**. Ejemplos:\n"
-    r += "   Requisitos 134104  ·  Duración 134104  ·  Perfil 134104\n"
-    r += "·  Si deseas toda la información del programa puedes escribir el código\n\n"
 
     if not show_all and len(unicos) > limit:
         r += "¿Te interesa alguno en particular?\n"
-        r += "💡 Escribe *más* o *ver todos* para ver más resultados."
+        r += "*💡 Escribe más o ver todos para ver más resultados.*"
     else:
-        r += "¿Te interesa alguno en particular?"
+        r += "*¿Te interesa alguno en particular?*"
     return r
 
 # ---------------------------------------------------------------------
@@ -472,14 +473,13 @@ def generar_respuesta(mensaje: str, show_all: bool = False) -> str:
             "👋 ¡Hola! Soy tu asistente SENA.\n\n"
             "🔎 ¿Qué deseas buscar?\n"
             "• Puedo darte brindarte información sobre tecnicos, tecnologos, operarios y/o auxiliares.\n"
-            "• Detalles por código de programa: 'requisitos [código]', 'duración [código]'.\n"
-            "• Si deseas la información completa de un programa puedes escribir el código del programa.\n\n"
+            "• Puedes buscar: tecnólogos sobre sistemas o la titulación y tema de tu interés"
             "💡 Tips: si ves muchos resultados escribe *más* o *ver todos*.\n\n"
             "• Para saber más sobre cómo preguntar escribe 'ayuda'"
         )
 
     # Ayuda
-    if any(p in m_norm for p in ["ayuda", "que puedes hacer", "opciones", "funcionas", "como buscar"]):
+    if any(p in m_norm for p in ["ayuda", "que puedes hacer", "opciones", "funcionas", "como buscar", "no entiendo"]):
         return (
             "Puedo buscar por nombre, nivel, municipio o sede y darte detalles por **código**.\n"
             "Ejemplos:\n"
