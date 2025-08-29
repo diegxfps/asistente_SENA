@@ -271,7 +271,7 @@ def buscar_programas_json(mensaje: str, show_all: bool = False, limit: int = 5) 
     desired_level = None
     for k in nivel_keys:
         if k in m_norm:
-            desired_level = nivel_keys[k]  # <-- ya normalizado
+            desired_level = nivel_keys[k]
             break
 
     horario_terms = {
@@ -282,12 +282,12 @@ def buscar_programas_json(mensaje: str, show_all: bool = False, limit: int = 5) 
     }
     desired_horario_tokens = [w for arr in horario_terms.values() for w in arr if w in m_norm]
 
-    # Filtro AND por tokens (igual que antes)
+    # Filtro AND por tokens + filtros conversacionales
     resultados = []
     for p in PROGRAMAS:
         if not _match_program_all_tokens(p, toks):
             continue
-        if desired_level and desired_level.lower() not in _norm(p.get('nivel','')):
+        if desired_level and desired_level not in _norm(p.get('nivel','')):
             continue
         if desired_horario_tokens:
             h = _norm(p.get('horario',''))
@@ -295,13 +295,13 @@ def buscar_programas_json(mensaje: str, show_all: bool = False, limit: int = 5) 
                 continue
         resultados.append(p)
 
-    # --- Fallback por NIVEL si no hubo matches por tokens ---
+    # Fallback: si no hubo matches por tokens pero sí hay un nivel pedido → listar por nivel
     if not resultados and desired_level:
         for p in PROGRAMAS:
             if desired_level in _norm(p.get('nivel','')):
                 resultados.append(p)
 
-    # --- Sin resultados: microcopy honesto, sin sugerencias ruidosas ---
+    # Sin resultados: microcopy honesto (sin sugerencias ruidosas)
     if not resultados:
         ejemplos = "\n".join(
             [f"• {p.get('programa','(sin nombre)')} ({p.get('nivel','N/A')})"
@@ -316,7 +316,7 @@ def buscar_programas_json(mensaje: str, show_all: bool = False, limit: int = 5) 
             f"Algunos ejemplos:\n{ejemplos}"
         )
 
-    # Unicidad por código+nombre (igual)
+    # Unicidad por código+nombre
     seen = set()
     unicos: List[Dict[str, Any]] = []
     for p in resultados:
@@ -327,26 +327,24 @@ def buscar_programas_json(mensaje: str, show_all: bool = False, limit: int = 5) 
 
     mostrados = unicos if show_all else unicos[:limit]
 
-    # Pie con guía
-    r += "ℹ️ Pide detalle con el **código**. Ejemplos:\n"
-    r += "   Requisitos [código]  ·  Duración [código]  ·  Perfil [código]\n"
-    r += "·  *Si deseas toda la información del programa puedes escribir el código*\n\n"
-    
-    # Encabezado de la lista
-    r = "📌 Programas encontrados:\n\n"
+    # Encabezado + tarjetas enumeradas (1..N)
     tarjetas = []
     for i, p in enumerate(mostrados, 1):
         tarjetas.append(f"{i}. " + _card_header(p).lstrip("• ").strip())
     r = "📌 Programas encontrados:\n\n" + "\n\n".join(tarjetas) + "\n\n"
 
-
+    # Pie con guía
+    r += "ℹ️ Pide detalle con el **código**. Ejemplos:\n"
+    r += "   Requisitos 134104  ·  Duración 134104  ·  Perfil 134104\n"
+    r += "·  Si deseas toda la información del programa puedes escribir el código\n\n"
 
     if not show_all and len(unicos) > limit:
         r += "¿Te interesa alguno en particular?\n"
-        r += "*💡 Escribe más o ver todos para ver más resultados.*"
+        r += "💡 Escribe *más* o *ver todos* para ver más resultados."
     else:
-        r += "*¿Te interesa alguno en particular?*"
-    return r
+        r += "¿Te interesa alguno en particular?"
+
+    return r[:4096]
 
 # ---------------------------------------------------------------------
 # Respuestas de detalle (siempre del JSON enriquecido)
