@@ -10,7 +10,7 @@ import requests
 
 from app.core import (
     generar_respuesta, top_codigos_para, ficha_por_codigo, _find_by_code, TOPIC_RE,
-    PROGRAMAS, _norm, _tokens, _fields_for_topic, NIVEL_CANON, _expand_topic_tokens
+    PROGRAMAS, _norm, _tokens, _fields_for_topic, NIVEL_CANON, _expand_topic_tokens, ficha_por_codigo_y_ordinal
 )
 
 logging.basicConfig(level=logging.INFO)
@@ -110,10 +110,34 @@ def incoming():
                     return "ok", 200
             # si no encuentra match exacto, ignora y sigue flujo normal
 
+        # ----------------- Selección por "<codigo>-<n>" (variante enumerada) -----------------
+        m_code_idx = re.fullmatch(r"\s*(\d{5,7})-(\d{1,2})\s*", text_norm or "")
+        if m_code_idx:
+            base, ord_str = m_code_idx.groups()
+            ord_n = int(ord_str)
+            respuesta = ficha_por_codigo_y_ordinal(base, ord_n)
+            st["last_code"] = base  # recordamos el código base
+            STATE[from_number] = st
+            send_whatsapp_message(to=from_number, body=respuesta)
+            return "ok", 200
+
         
         # ----------------- Selección numerada (1..5) tras lista ambigua -----------------
+                # ----------------- Selección numerada (1..5) tras lista ambigua -----------------
         if re.fullmatch(r"[1-5]", text_norm or "") and st.get("candidates"):
             idx = int(text_norm) - 1
+
+            # Si existe candidates_ext, respeta código + ordinal
+            if st.get("candidates_ext") and 0 <= idx < len(st["candidates_ext"]):
+                base = st["candidates_ext"][idx]["code"]
+                ord_n = st["candidates_ext"][idx]["ord"]
+                respuesta = ficha_por_codigo_y_ordinal(base, ord_n)
+                st["last_code"] = base
+                STATE[from_number] = st
+                send_whatsapp_message(to=from_number, body=respuesta)
+                return "ok", 200
+
+            # Fallback (solo código)
             codes = st["candidates"]
             if 0 <= idx < len(codes):
                 code = codes[idx]
