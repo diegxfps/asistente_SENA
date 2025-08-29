@@ -324,11 +324,11 @@ def buscar_programas_json(mensaje: str, show_all: bool = False, limit: int = 5) 
 
     # Fallback: si no hubo matches por tokens pero sí hay un nivel pedido → listar por nivel
     if not resultados and desired_level:
-    for p in PROGRAMAS:
-        if desired_level in _norm(p.get('nivel','')):
-            hay = " ".join([p.get("_n_programa",""), p.get("_n_municipio",""), p.get("_n_sede",""), p.get("_n_codigo","")])
-            if all(t in hay for t in toks):
-                resultados.append(p)
+        for p in PROGRAMAS:
+            if desired_level in _norm(p.get('nivel','')):
+                hay = " ".join([p.get("_n_programa",""), p.get("_n_municipio",""), p.get("_n_sede",""), p.get("_n_codigo","")])
+                if all(t in hay for t in toks):
+                    resultados.append(p)
 
     # Sin resultados: microcopy honesto (sin sugerencias ruidosas)
     if not resultados:
