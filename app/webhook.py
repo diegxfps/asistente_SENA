@@ -8,8 +8,10 @@ from flask import Flask, request, jsonify
 import requests
 
 
-from app.core import generar_respuesta, top_codigos_para, ficha_por_codigo  # core sigue siendo la única fuente
-  # solo usamos el core limpio
+from app.core import (
+    generar_respuesta, top_codigos_para, ficha_por_codigo, _find_by_code, TOPIC_RE,
+    PROGRAMAS, _norm, _tokens, _fields_for_topic, NIVEL_CANON, _expand_topic_tokens
+)
 
 logging.basicConfig(level=logging.INFO)
 log = logging.getLogger("webhook")
@@ -123,10 +125,35 @@ def incoming():
             # Guardar contexto mínimo
             STATE[from_number] = {"last_query": text_norm}
 
-            # Guardar candidatos para 1..5 (si no hay código explícito en el texto)
+                      # --- Si la consulta es "nivel + (sobre|en|de) + tema", guardamos candidates específicos ---
+            m_topic = TOPIC_RE.match(text_norm)
+            if m_topic:
+                nivel_raw, _, tema = m_topic.groups()
+                nivel = NIVEL_CANON.get(_norm(nivel_raw), None)
+                if nivel:
+                    topic_tokens = _expand_topic_tokens(_tokens(_norm(tema)))
+                    # selecciona programas por nivel + presencia del tema en (programa+perfil+competencias)
+                    encontrados = []
+                    for p in PROGRAMAS:
+                        if nivel not in _norm(p.get("nivel","")):
+                            continue
+                        hay = _fields_for_topic(p)
+                        if any(tok in hay for tok in topic_tokens):
+                            cod = str(p.get("codigo") or p.get("codigo_ficha") or p.get("no") or "").strip()
+                            if cod:
+                                encontrados.append(cod)
+                    if encontrados:
+                        STATE[from_number]["candidates"] = encontrados[:5]
+                        STATE[from_number]["page"] = 0
+
+
+                       # --- Si NO es "nivel + tema", usa el mecanismo genérico ---
             if not re.search(r"\b\d{5,7}\b", text_norm):
                 try:
-                    STATE[from_number]["candidates"] = top_codigos_para(text_norm, limit=5)
+                    # si hubo nivel+tema, este overwrite no debe ejecutarse (ya habrá candidates);
+                    # si quieres ser 100% explícito, envuelve en `if "candidates" not in STATE[from_number]:`
+                    if "candidates" not in STATE[from_number]:
+                        STATE[from_number]["candidates"] = top_codigos_para(text_norm, limit=5)
                 except Exception:
                     pass
 
