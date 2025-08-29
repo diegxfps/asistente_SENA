@@ -42,6 +42,25 @@ def _load_data() -> List[Dict[str, Any]]:
 
 PROGRAMAS: List[Dict[str, Any]] = _load_data()
 
+# Requisitos por nivel (agregados y deduplicados)
+def _build_reqs_por_nivel() -> Dict[str, List[str]]:
+    levels = {"tecnologo": [], "tecnico": [], "operario": [], "auxiliar": []}
+    seen = {k: set() for k in levels}
+    for p in PROGRAMAS:
+        nivel = _norm(p.get("nivel",""))
+        reqs = p.get("requisitos") or []
+        for k in levels:
+            if k in nivel:
+                for r in reqs:
+                    rn = _norm(r)
+                    if rn and rn not in seen[k]:
+                        seen[k].add(rn)
+                        levels[k].append(str(r).strip())
+    return levels
+
+REQS_POR_NIVEL = _build_reqs_por_nivel()
+
+
 # ---------------------------------------------------------------------
 # Intenciones y helpers
 # ---------------------------------------------------------------------
@@ -186,6 +205,8 @@ def _buscar_por_nivel_y_tema(texto_norm: str, limit: int = 5) -> Optional[str]:
             r += "Escribe *más* o *ver todos* para ver más resultados."
         return r
 
+
+    
     # 2) Sin resultados en el nivel → buscar el mismo tema en otros niveles
     otros_niveles = []
     for p in PROGRAMAS:
@@ -313,8 +334,11 @@ def buscar_programas_json(mensaje: str, show_all: bool = False, limit: int = 5) 
     
     # Encabezado de la lista
     r = "📌 Programas encontrados:\n\n"
-    for p in mostrados:
-        r += _card_header(p) + "\n\n"
+    tarjetas = []
+    for i, p in enumerate(mostrados, 1):
+        tarjetas.append(f"{i}. " + _card_header(p).lstrip("• ").strip())
+    r = "📌 Programas encontrados:\n\n" + "\n\n".join(tarjetas) + "\n\n"
+
 
 
     if not show_all and len(unicos) > limit:
@@ -458,6 +482,38 @@ def responder_detalle(intent: str, mensaje: str) -> str:
     out += f"\n{etiqueta}:\n{cuerpo}"
     return out
 
+def responder_requisitos_unificados(m_norm: str) -> Optional[str]:
+    # Si el usuario pide requisitos SIN código → devolvemos por nivel
+    if "requisit" not in m_norm or re.search(r"\b\d{5,7}\b", m_norm):
+        return None
+    # nivel opcional
+    niveles = [("TECNÓLOGO","tecnologo"), ("TÉCNICO","tecnico"), ("OPERARIO","operario"), ("AUXILIAR","auxiliar")]
+    target = None
+    for etiqueta, key in niveles:
+        if key in m_norm:
+            target = (etiqueta, key)
+            break
+
+    def bloque(etiqueta: str, key: str) -> str:
+        vals = REQS_POR_NIVEL.get(key, [])
+        cuerpo = "• " + "\n• ".join(vals) if vals else "(No tengo ese dato en este momento)."
+        # recorte defensivo
+        if len(cuerpo) > 900:  # para no exceder 4096 sumando 4 bloques
+            cuerpo = cuerpo[:900].rstrip() + "…"
+        return f"◾ *{etiqueta}:*\n{cuerpo}\n"
+
+    if target:
+        etiqueta, key = target
+        return f"**Requisitos por nivel — {etiqueta}**\n\n{bloque(etiqueta, key)}".strip()[:4096]
+
+    # Todos los niveles
+    partes = ["**Requisitos por nivel**\n"]
+    for etiqueta, key in niveles:
+        partes.append(bloque(etiqueta, key))
+    out = "\n".join(partes).strip()
+    return out[:4096]
+
+
 # ---------------------------------------------------------------------
 # Generador principal
 # ---------------------------------------------------------------------
@@ -501,6 +557,12 @@ def generar_respuesta(mensaje: str, show_all: bool = False) -> str:
     resp_nivel_tema = _buscar_por_nivel_y_tema(m_norm, limit=5)
     if resp_nivel_tema:
         return resp_nivel_tema
+
+        # Requisitos unificados por nivel (sin código)
+    resp_reqs_global = responder_requisitos_unificados(m_norm)
+    if resp_reqs_global:
+        return resp_reqs_global
+
 
     # Intención de detalle
     intent = _detect_intent(m_norm)
