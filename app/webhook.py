@@ -6,7 +6,7 @@ import unicodedata
 import re
 from flask import Flask, request, jsonify
 
-import send  # nuevo: centralizamos los envíos en send.py
+from app import send  # nuevo: centralizamos los envíos en send.py
 
 from app.core import (
     generar_respuesta, top_codigos_para, ficha_por_codigo, _find_by_code, TOPIC_RE,
