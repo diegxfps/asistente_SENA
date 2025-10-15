@@ -6,9 +6,11 @@ def _here(*parts):
     return os.path.join(os.path.dirname(__file__), *parts)
 
 PROGRAMAS_PATH_CANDIDATES = [
-    _here("programas_enriquecido.json"),
-    _here("..", "programas_enriquecido.json"),
-    "programas_enriquecido.json",
+    _here("programas_enriquecido.json"),                          # app/programas_enriquecido.json
+    _here("..", "programas_enriquecido.json"),                    # /app/programas_enriquecido.json
+    _here("..", "storage_simple", "programas_enriquecido.json"),  # /app/storage_simple/programas_enriquecido.json  👈
+    _here("storage_simple", "programas_enriquecido.json"),        # app/storage_simple/programas_enriquecido.json   (por si acaso)
+    "programas_enriquecido.json",                                 # raíz del repo (modo local)
 ]
 
 PROGRAMAS = []
