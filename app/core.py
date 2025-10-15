@@ -573,16 +573,62 @@ def generar_respuesta(texto: str, show_all: bool = False, page: int = 0, page_si
       1) Saludos/Ayuda (ampliado)
       2) Requisitos/Duración/Perfil... por NIVEL (general; sin código)
       3) Código + ordinal
-      4) Código puro
-      5) Consulta por TEMA (con/sin NIVEL)  -> lista paginada 10×10
-      6) NIVEL SOLO (técnico/tecnólogo/auxiliar/operario) -> lista paginada 10×10
-      7) Búsqueda genérica -> lista paginada 10×10
+      4) Código puro -> si >1 ubicaciones, listar; si 1, ficha
+      5) Consulta por TEMA (con/sin NIVEL)  -> lista paginada 10×10 con ciudad/sede/horario
+      6) NIVEL SOLO (técnico/tecnólogo/auxiliar/operario) -> lista paginada 10×10 con ciudad/sede/horario
+      7) Búsqueda genérica -> lista paginada 10×10 con ciudad/sede/horario
     """
     if not texto:
         return "Escribe una consulta, por ejemplo: *técnico en sistemas Popayán* o el *código* del programa."
 
     q = _norm(texto)
     toks = set(_tokens(q))
+
+    # ------- helpers locales -------
+    import re as _re
+
+    def _code_of(p):
+        return str(p.get("codigo") or p.get("codigo_ficha") or p.get("no") or "").strip()
+
+    def _all_by_code(code: str):
+        code = str(code).strip()
+        return [p for p in PROGRAMAS if _code_of(p) == code]
+
+    def _nth_by_code(code: str, n: int):
+        """Devuelve el n-ésimo (1-based) programa con ese código, o None."""
+        lst = _all_by_code(code)
+        return lst[n - 1] if 1 <= n <= len(lst) else None
+
+    def _loc_line(p):
+        """Construye 'Ciudad • Sede • Horario' con tolerancia a nombres de campo."""
+        ciudad = p.get("municipio") or p.get("ciudad") or p.get("lugar") or ""
+        sede = p.get("sede") or p.get("centro") or p.get("ambiente") or ""
+        horario = p.get("horario") or p.get("jornada") or p.get("dias") or p.get("días") or ""
+        parts = [s.strip() for s in [ciudad, sede, horario] if s]
+        return " • ".join(parts) if parts else "Ubicación no especificada"
+
+    def _listado_codigos(cods, header: str) -> str:
+        """Renderiza una página de 'cods' (lista de códigos, con posibles repetidos) mostrando ciudad/sede/horario."""
+        start, end = page * page_size, (page + 1) * page_size
+        page_items = cods[start:end]
+        per_code_count, body_lines = {}, []
+        for i, cod in enumerate(page_items, start=1):
+            per_code_count[cod] = per_code_count.get(cod, 0) + 1
+            ord_n = per_code_count[cod]
+            p = _nth_by_code(cod, ord_n) or _find_by_code(cod)
+            if not p:
+                continue
+            titulo = p.get('programa') or p.get('nombre') or "Programa"
+            loc = _loc_line(p)
+            body_lines.append(
+                f"{i}. {titulo}\n   {loc}\n   Código [{cod}]  (respuesta: {cod}-{ord_n})"
+            )
+        if not body_lines:
+            return "No hay más resultados en esta lista."
+        footer = ""
+        if end < len(cods):
+            footer = "\nEscribe *ver más* para ver los siguientes 10."
+        return f"{header}\n" + "\n".join(body_lines) + footer
 
     # 1) Saludos / Ayuda (ampliado)
     SALUDOS = {
@@ -602,7 +648,7 @@ def generar_respuesta(texto: str, show_all: bool = False, page: int = 0, page_si
     # 2) Requisitos/Duración/Perfil... por NIVEL (general)
     FOLLOW = {"requisitos","requisito","req","duracion","duración","tiempo","perfil","competencias","certificacion","certificación"}
     NIVEL_TOKENS = set(NIVEL_CANON.keys())
-    if any(w in q for w in FOLLOW) and not re.search(r"\b\d{5,7}\b", q):
+    if any(w in q for w in FOLLOW) and not _re.search(r"\b\d{5,7}\b", q):
         nivel_detectado = None
         for canon, nivel_txt in NIVEL_CANON.items():
             if canon in q:
@@ -622,7 +668,7 @@ def generar_respuesta(texto: str, show_all: bool = False, page: int = 0, page_si
         titulo_nivel = f" {nivel_detectado}" if nivel_detectado else ""
         for etq in etiquetas_orden:
             if ocurrencias[etq]:
-                ejemplos = list(ocurrencias[etq])[:2]  # 2 para que suene general
+                ejemplos = list(ocurrencias[etq])[:2]
                 bullets = "\n".join(f"- {ej[:500]}{'…' if len(ej)>=500 else ''}" for ej in ejemplos)
                 partes.append(f"*{etq.title()}{titulo_nivel}:*\n{bullets}")
         if partes:
@@ -630,15 +676,24 @@ def generar_respuesta(texto: str, show_all: bool = False, page: int = 0, page_si
             return "\n\n".join(partes)
 
     # 3) Código + ordinal
-    m_code_idx = re.fullmatch(r"\s*(\d{5,7})-(\d{1,2})\s*", q or "")
+    m_code_idx = _re.fullmatch(r"\s*(\d{5,7})-(\d{1,2})\s*", q or "")
     if m_code_idx:
         base, ord_str = m_code_idx.groups()
         return ficha_por_codigo_y_ordinal(base, int(ord_str))
 
-    # 4) Código puro
-    m_code = re.fullmatch(r"\s*(\d{5,7})\s*", q or "")
+    # 4) Código puro -> si >1 ubicaciones, listar; si 1, ficha
+    m_code = _re.fullmatch(r"\s*(\d{5,7})\s*", q or "")
     if m_code:
-        return ficha_por_codigo(m_code.group(1))
+        code = m_code.group(1)
+        variantes = _all_by_code(code)
+        if not variantes:
+            return "No encontré un programa con ese código."
+        if len(variantes) == 1:
+            return ficha_por_codigo(code)
+        # múltiples ubicaciones: listar
+        cods = [code] * len(variantes)  # mismo código repetido; el ordinal definirá la ubicación
+        header = f"El código *{code}* tiene *{len(variantes)}* ubicaciones. Elige una (pág. {page+1}):"
+        return _listado_codigos(cods, header)
 
     # Sinónimos de tema
     TOPIC_SYNONYMS = {
@@ -667,29 +722,14 @@ def generar_respuesta(texto: str, show_all: bool = False, page: int = 0, page_si
                     continue
                 hay = _fields_for_topic(p)
                 if any(tok in hay for tok in topic_tokens):
-                    cod = str(p.get("codigo") or p.get("codigo_ficha") or p.get("no") or "").strip()
+                    cod = _code_of(p)
                     if cod:
                         encontrados.append(cod)
             lista = list(dict.fromkeys(encontrados))
             if not lista:
                 return "No encontré resultados con ese tema."
-            start, end = page*page_size, (page+1)*page_size
-            page_items = lista[start:end]
             header = f"Resultados para *{nivel.lower()}* sobre *{tema}* (pág. {page+1}):"
-            per_code_count, body_lines = {}, []
-            for i, cod in enumerate(page_items, start=1):
-                f = _find_by_code(cod)
-                if not f: continue
-                per_code_count[cod] = per_code_count.get(cod, 0) + 1
-                ord_n = per_code_count[cod]
-                titulo = f.get('programa') or f.get('nombre') or "Programa"
-                body_lines.append(f"{i}. {titulo}  —  Código [{cod}]  (respuesta: {cod}-{ord_n})")
-            footer = ""
-            if end < len(lista):
-                footer = "\nEscribe *ver más* para ver los siguientes 10."
-            if not body_lines:
-                return "No hay más resultados en esta lista."
-            return f"{header}\n" + "\n".join(body_lines) + footer
+            return _listado_codigos(lista, header)
 
     # 5.b) tema solo  -> lista paginada
     if not (toks & NIVEL_TOKENS) and len(toks) <= 3:
@@ -698,63 +738,35 @@ def generar_respuesta(texto: str, show_all: bool = False, page: int = 0, page_si
         for p in PROGRAMAS:
             hay = _fields_for_topic(p)
             if any(tok in hay for tok in topic_tokens):
-                cod = str(p.get("codigo") or p.get("codigo_ficha") or p.get("no") or "").strip()
+                cod = _code_of(p)
                 if cod:
                     encontrados.append(cod)
         lista = list(dict.fromkeys(encontrados))
         if not lista:
             return "No encontré resultados con ese tema."
-        start, end = page*page_size, (page+1)*page_size
-        page_items = lista[start:end]
         header = f"Resultados para el tema *{texto.strip()}* (pág. {page+1}):"
-        per_code_count, body_lines = {}, []
-        for i, cod in enumerate(page_items, start=1):
-            f = _find_by_code(cod)
-            if not f: continue
-            per_code_count[cod] = per_code_count.get(cod, 0) + 1
-            ord_n = per_code_count[cod]
-            titulo = f.get('programa') or f.get('nombre') or "Programa"
-            body_lines.append(f"{i}. {titulo}  —  Código [{cod}]  (respuesta: {cod}-{ord_n})")
-        footer = ""
-        if end < len(lista):
-            footer = "\nEscribe *ver más* para ver los siguientes 10."
-        if not body_lines:
-            return "No hay más resultados en esta lista."
-        return f"{header}\n" + "\n".join(body_lines) + footer
+        return _listado_codigos(lista, header)
 
     # 6) nivel SOLO -> lista paginada
     SOLO_NIVEL = None
     for canon, nivel_txt in NIVEL_CANON.items():
-        if re.fullmatch(rf"\s*{canon}s?\s*", q or ""):
+        if _re.fullmatch(rf"\s*{canon}s?\s*", q or ""):
             SOLO_NIVEL = nivel_txt
             break
     if SOLO_NIVEL:
         cods = []
         for p in PROGRAMAS:
             if SOLO_NIVEL in _norm(p.get("nivel","")):
-                cod = str(p.get("codigo") or p.get("codigo_ficha") or p.get("no") or "").strip()
+                cod = _code_of(p)
                 if cod: cods.append(cod)
         lista = list(dict.fromkeys(cods))
         if not lista:
             return f"No encontré programas para el nivel *{SOLO_NIVEL}*."
-        start, end = page*page_size, (page+1)*page_size
-        page_items = lista[start:end]
         header = f"Programas del nivel *{SOLO_NIVEL}* (pág. {page+1}):"
-        per_code_count, body_lines = {}, []
-        for i, cod in enumerate(page_items, start=1):
-            f = _find_by_code(cod)
-            if not f: continue
-            per_code_count[cod] = per_code_count.get(cod, 0) + 1
-            ord_n = per_code_count[cod]
-            titulo = f.get('programa') or f.get('nombre') or "Programa"
-            body_lines.append(f"{i}. {titulo}  —  Código [{cod}]  (respuesta: {cod}-{ord_n})")
-        footer = ""
-        if end < len(lista):
-            footer = "\nEscribe *ver más* para ver los siguientes 10."
-        return f"{header}\n" + "\n".join(body_lines) + footer
+        return _listado_codigos(lista, header)
 
-    # 7) búsqueda genérica -> usa tu ranker, pero pagina
-    cods = top_codigos_para(q, limit=9999 if show_all else 1000)  # grande para paginar local
+    # 7) búsqueda genérica -> usa tu ranker, pero pagina y muestra ubicación
+    cods = top_codigos_para(q, limit=9999 if show_all else 1000)
     if not cods:
         return (
             "No encontré coincidencias. Prueba con:\n"
@@ -762,21 +774,8 @@ def generar_respuesta(texto: str, show_all: bool = False, page: int = 0, page_si
             "• Un *tema* (ej. *contabilidad*, *software*, *salud*)\n"
             "• El *código* del programa (ej. 228118)"
         )
-    start, end = page*page_size, (page+1)*page_size
-    page_items = cods[start:end]
     header = ("Resultados:" if page == 0 else f"Resultados (pág. {page+1}):")
-    per_code_count, body_lines = {}, []
-    for i, cod in enumerate(page_items, start=1):
-        f = _find_by_code(cod)
-        if not f: continue
-        per_code_count[cod] = per_code_count.get(cod, 0) + 1
-        ord_n = per_code_count[cod]
-        titulo = f.get('programa') or f.get('nombre') or "Programa"
-        body_lines.append(f"{i}. {titulo}  —  Código [{cod}]  (respuesta: {cod}-{ord_n})")
-    footer = ""
-    if end < len(cods):
-        footer = "\nEscribe *ver más* para ver los siguientes 10."
-    return f"{header}\n" + "\n".join(body_lines) + footer
+    return _listado_codigos(cods, header)
 
 def top_codigos_para(mensaje: str, limit: int = 5) -> List[str]:
     """Devuelve códigos de los top resultados (en el mismo orden que la lista)."""
