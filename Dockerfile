@@ -17,6 +17,7 @@ RUN python -m pip install --upgrade pip \
 
 # copiar tu app y datos
 COPY app ./app
+COPY programas_enriquecido.json ./app/programas_enriquecido.json  
 COPY storage_simple ./storage_simple
 
 ENV PYTHONUNBUFFERED=1
