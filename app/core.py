@@ -629,6 +629,14 @@ def generar_respuesta(texto: str, show_all: bool = False, page: int = 0, page_si
         if end < len(cods):
             footer = "\nEscribe *ver más* para ver los siguientes 10."
         return f"{header}\n" + "\n".join(body_lines) + footer
+        
+    def _loc_text(p):
+        """Texto normalizado de ubicación para matching: municipio/ciudad + sede/centro + horario."""
+        ciudad = p.get("municipio") or p.get("ciudad") or p.get("lugar") or ""
+        sede = p.get("sede") or p.get("centro") or p.get("ambiente") or ""
+        horario = p.get("horario") or p.get("jornada") or p.get("dias") or p.get("días") or ""
+        txt = " ".join(str(x) for x in (ciudad, sede, horario) if x)
+        return _norm(txt)
 
     # 1) Saludos / Ayuda (ampliado)
     SALUDOS = {
@@ -720,8 +728,9 @@ def generar_respuesta(texto: str, show_all: bool = False, page: int = 0, page_si
             for p in PROGRAMAS:
                 if nivel not in _norm(p.get("nivel", "")):
                     continue
-                hay = _fields_for_topic(p)
-                if any(tok in hay for tok in topic_tokens):
+                hay_topic = _fields_for_topic(p)
+                hay_loc = _loc_text(p)
+                if any(tok in hay_topic for tok in topic_tokens) or any(tok in hay_loc for tok in topic_tokens):
                     cod = _code_of(p)
                     if cod:
                         encontrados.append(cod)
@@ -736,8 +745,9 @@ def generar_respuesta(texto: str, show_all: bool = False, page: int = 0, page_si
         topic_tokens = expand_topic_tokens_local(toks)
         encontrados = []
         for p in PROGRAMAS:
-            hay = _fields_for_topic(p)
-            if any(tok in hay for tok in topic_tokens):
+            hay_topic = _fields_for_topic(p)
+            hay_loc = _loc_text(p)
+            if any(tok in hay_topic for tok in topic_tokens) or any(tok in hay_loc for tok in topic_tokens):
                 cod = _code_of(p)
                 if cod:
                     encontrados.append(cod)
