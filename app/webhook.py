@@ -93,10 +93,11 @@ def incoming():
             STATE[from_number] = st
             enviar_texto(from_number, respuesta)
             return "ok", 200
-
-        # ----------------- Selección numerada (1..5) tras lista ambigua -----------------
-        if re.fullmatch(r"[1-5]", text_norm or "") and st.get("candidates"):
+            
+        # ----------------- Selección numerada (1..10) tras lista/paginación -----------------
+        if re.fullmatch(r"(?:10|[1-9])", text_norm or "") and st.get("candidates"):
             idx = int(text_norm) - 1
+
 
             # Si existe candidates_ext, respeta código + ordinal
             if st.get("candidates_ext") and 0 <= idx < len(st["candidates_ext"]):
@@ -123,20 +124,23 @@ def incoming():
         if any(w in text_norm for w in FOLLOW) and re.search(r"\b\d{5,7}\b", text_norm) is None and st.get("last_code"):
             text = f"{text_norm} {st['last_code']}"
 
-        # ----------------- Paginación: "más" / "ver todos" -----------------
-        if text_norm in {"mas", "más", "ver mas", "ver más", "mostrar mas", "mostrar más", "ver todos", "mostrar todos"}:
+        # ----------------- Paginación: "más"/"ver más" (10 en 10) -----------------
+        if text_norm in {"mas", "más", "ver mas", "ver más", "mostrar mas", "mostrar más"}:
             if not st or not st.get("last_query"):
                 respuesta = "No tengo una búsqueda previa. Escribe una consulta (ej.: 'popayan tecnico', 'alto cauca')."
             else:
-                respuesta = generar_respuesta(st["last_query"], show_all=True)
+                st["page"] = st.get("page", 0) + 1
+                STATE[from_number] = st
+                respuesta = generar_respuesta(st["last_query"], show_all=False, page=st["page"], page_size=10)
+
 
         # ----------------- Nueva consulta normal -----------------
         else:
             respuesta = generar_respuesta(text, show_all=False)
 
             # Guardar contexto mínimo
-            STATE[from_number] = {"last_query": text_norm}
-            
+            STATE[from_number] = {"last_query": text_norm, "page": 0}
+        
             # --- Extraer candidatos en el mismo orden mostrado (hasta 5) ---
             candidates_ext = []
             lines = (respuesta or "").splitlines()
@@ -151,7 +155,7 @@ def incoming():
                 code = m_code.group(1)
                 per_code_count[code] = per_code_count.get(code, 0) + 1
                 candidates_ext.append({"code": code, "ord": per_code_count[code]})
-                if len(candidates_ext) >= 5:
+                if len(candidates_ext) >= 10:
                     break
             if candidates_ext:
                 STATE[from_number]["candidates_ext"] = candidates_ext
@@ -180,7 +184,7 @@ def incoming():
             if not re.search(r"\b\d{5,7}\b", text_norm):
                 try:
                     if "candidates" not in STATE[from_number]:
-                        STATE[from_number]["candidates"] = top_codigos_para(text_norm, limit=5)
+                        STATE[from_number]["candidates"] = top_codigos_para(text_norm, limit=10)
                 except Exception:
                     pass
 
