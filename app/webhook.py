@@ -9,8 +9,9 @@ from flask import Flask, request, jsonify
 from app import send  # nuevo: centralizamos los envíos en send.py
 
 from app.core import (
-    generar_respuesta, top_codigos_para, ficha_por_codigo, _find_by_code, TOPIC_RE,
-    PROGRAMAS, _norm, _tokens, _fields_for_topic, NIVEL_CANON, _expand_topic_tokens, ficha_por_codigo_y_ordinal
+    generar_respuesta, top_codigos_para, ficha_por_codigo, TOPIC_RE,
+    PROGRAMAS, _norm, _tokens, _fields_for_topic, NIVEL_CANON, _expand_topic_tokens,
+    ficha_por_codigo_y_ordinal
 )
 
 logging.basicConfig(level=logging.INFO)
