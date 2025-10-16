@@ -101,7 +101,11 @@ def _expand_topic_tokens(tokens:set) -> set:
     return base
 
 # Patrón “nivel + (sobre|en|de) + tema/ubicación”
-TOPIC_RE = re.compile(r"^(tecnico[s]?|tecnologo[s]?|auxiliar[es]?|operario[s]?)\s+(?:sobre|en|de)\s+(.+)$", re.I)
+TOPIC_RE = re.compile(
+    r"^(tecnico[s]?|tecnologo[s]?|auxiliar[es]?|operario[s]?)\s+(sobre|en|de)\s+(.+)$",
+    re.I,
+)
+
 
 # ========================= HELPERS DE CÓDIGO/UBICACIÓN =========================
 def _code_of(p):  # string
