@@ -415,7 +415,10 @@ def _render_ficha(p, code: str):
 def ficha_por_codigo(code: str) -> str:
     p = _find_by_code(code)
     if not p:
-        return "No encontré un programa con ese código."
+        return (
+                "No encontré un programa con ese código.\n\n"
+                "Prueba revisando el código 😢."
+        )
     return _render_ficha(p, code)
 
 def ficha_por_codigo_y_ordinal(code: str, ord_n: int) -> str:
@@ -450,11 +453,12 @@ def generar_respuesta(texto: str, show_all: bool = False, page: int = 0, page_si
         return (
             "¡Hola! Soy tu asistente SENA 👋\n\n"
             "Puedes enviarme:\n"
-            "• Un *código* (ej. 228118)\n"
-            "• *nivel + sede/ciudad* (ej. *tecnólogos en Guapi*, *técnicos sede la casona*)\n"
-            "• *nivel + tema* (ej. *técnico sobre contabilidad*)\n"
-            "• Una *búsqueda* por palabra clave (ej. *software*, *Popayán técnico*)\n\n"
-            "También: *requisitos técnico*, *duración tecnólogo*, *perfil auxiliar*, etc."
+            "• Un *código* (ej. *228118*).\n"
+            "• *nivel + sede/ciudad* (ej. *tecnólogos en Popayán*, *técnicos sede norte*).\n"
+            "• *nivel + tema* (ej. *tecnólogos sobre software *).\n"
+            "• Una *búsqueda* por palabra clave (ej. *software*, *Popayán técnico*).\n\n"
+            "También: *requisitos técnico*, *duración tecnólogo*, *perfil auxiliar*, etc.\n"
+            "Si lo deseas puedes pedir escribir *ayuda* para más información."
         )
 
     # 2) Requisitos/Duración/Perfil (general por nivel)
@@ -496,7 +500,10 @@ def generar_respuesta(texto: str, show_all: bool = False, page: int = 0, page_si
         code = intent["code"]
         variants = BY_CODE.get(code, [])
         if not variants:
-            return "No encontré un programa con ese código."
+            return (
+                    "No encontré un programa con ese código.\n\n"
+                    "Prueba con otra combinación o escribiendo *ayuda* 😢."
+            )
         if len(variants) == 1:
             return ficha_por_codigo(code)
         items = [(code, i+1) for i in range(len(variants))]
@@ -504,7 +511,10 @@ def generar_respuesta(texto: str, show_all: bool = False, page: int = 0, page_si
     else:
         items = _search_programs(intent)
         if not items:
-            return "No encontré resultados para tu búsqueda."
+            return (
+                    "No encontré resultados para tu búsqueda.\n\n"
+                    "Prueba con otra combinación o escribiendo *ayuda* 😢."
+            )
         # encabezados informativos
         if intent.get("location", {}).get("municipio"):
             mun_txt = next(iter(intent["location"]["municipio"]))
@@ -541,7 +551,7 @@ def generar_respuesta(texto: str, show_all: bool = False, page: int = 0, page_si
         lines.append(
             f"{i}) *{titulo}*\n"
             f"   📍 {loc_line}{extra}\n"
-            f"   🆔 Código [{code}] — responde: {code}-{ord_n}"
+            f"   🆔 Código [{code}] — responde: {code}-{ord_n}\n"
         )
 
     if end < len(items):
