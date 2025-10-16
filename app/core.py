@@ -204,75 +204,113 @@ def _find_by_code(code: str):
 def _parse_intent(q: str) -> dict:
     qn = _norm(q)
 
-    # --- code-ordinal
+    # code-ordinal
     m = re.fullmatch(r"\s*(\d{5,7})-(\d{1,2})\s*", qn or "")
     if m:
         return {"code": m.group(1), "ordinal": int(m.group(2))}
 
-    # --- code solo
+    # code solo
     m = re.fullmatch(r"\s*(\d{5,7})\s*", qn or "")
     if m:
         return {"code": m.group(1)}
 
-    # --- nivel
+    # nivel
     nivel = None
     for canon, nivel_txt in NIVEL_CANON.items():
-        if re.search(rf"\b{canon}s?\b", qn):
+        if re.search(rf"\b{re.escape(canon)}s?\b", qn):
             nivel = nivel_txt
             break
 
-    # --- patrón con preposición: nivel + (en|de|sobre) + X
-    m2 = re.search(r"(?:\b(en|de|sobre)\b)\s+(.+)$", qn)
-    trailing = _norm(m2.group(2)) if m2 else ""
+    # ===== 1) Captura explícita: "… (en|sobre|de) <cola>" =====
+    tail_txt = ""
+    m_tail = re.search(r"(?:\b(en|sobre|de)\b)\s+(.+)$", qn)
+    if m_tail:
+        tail_txt = _norm(m_tail.group(2))  # preserva orden original en tail
 
-    # --- tokens tema (luego depuramos si son ubicación)
+        # ¿municipio en la cola?
+        mun_detect = set()
+        # a) exacto por índice
+        for mun_key in BY_MUNICIPIO.keys():
+            if re.search(rf"\b{re.escape(mun_key)}\b", tail_txt):
+                mun_detect.add(mun_key)
+        # b) por alias
+        for canon, variants in ALIAS_MUNICIPIO.items():
+            for v in variants:
+                if re.search(rf"\b{re.escape(v)}\b", tail_txt):
+                    # expande a las variantes que existan en índice
+                    for vv in ALIAS_MUNICIPIO.get(canon, {canon}):
+                        if vv in BY_MUNICIPIO:
+                            mun_detect.add(vv)
+
+        # ¿sede en la cola?
+        sede_detect = set()
+        # a) exacto por índice
+        for sede_key in BY_SEDE.keys():
+            if re.search(rf"\b{re.escape(sede_key)}\b", tail_txt):
+                sede_detect.add(sede_key)
+        # b) por alias
+        for canon, variants in ALIAS_SEDE.items():
+            for v in variants:
+                if re.search(rf"\b{re.escape(v)}\b", tail_txt):
+                    sede_detect.add(_norm(v))
+        # c) por n-gram de la cola
+        grams_tail = _ngrams_for_text(tail_txt)
+        for g in grams_tail:
+            if g in NG_SEDE:
+                for p in NG_SEDE[g]:
+                    sede_n = _norm(p.get("sede") or p.get("centro") or p.get("ambiente") or "")
+                    if sede_n:
+                        sede_detect.add(sede_n)
+
+        # Si la cola es ubicación, devolvemos intent con location
+        if mun_detect or sede_detect:
+            return {
+                "nivel": nivel,
+                "location": {"municipio": mun_detect} if mun_detect else {"sede": sede_detect},
+                # guardamos la cola para encabezado bonito
+                "tail_text": tail_txt
+            }
+
+    # ===== 2) Detección libre (sin "en/sobre/de") =====
+    municipios_detectados = set()
+    for mun_key in BY_MUNICIPIO.keys():
+        if re.search(rf"\b{re.escape(mun_key)}\b", qn):
+            municipios_detectados.add(mun_key)
+    for canon, variants in ALIAS_MUNICIPIO.items():
+        for v in variants:
+            if re.search(rf"\b{re.escape(v)}\b", qn):
+                for vv in ALIAS_MUNICIPIO.get(canon, {canon}):
+                    if vv in BY_MUNICIPIO:
+                        municipios_detectados.add(vv)
+
+    sedes_detectadas = set()
+    for sede_key in BY_SEDE.keys():
+        if re.search(rf"\b{re.escape(sede_key)}\b", qn):
+            sedes_detectadas.add(sede_key)
+    for canon, variants in ALIAS_SEDE.items():
+        for v in variants:
+            if re.search(rf"\b{re.escape(v)}\b", qn):
+                sedes_detectadas.add(_norm(v))
+    grams_q = _ngrams_for_text(qn)
+    for g in grams_q:
+        if g in NG_SEDE:
+            for p in NG_SEDE[g]:
+                sede_n = _norm(p.get("sede") or p.get("centro") or p.get("ambiente") or "")
+                if sede_n:
+                    sedes_detectadas.add(sede_n)
+
+    # ===== 3) Tema (después de intentar ubicación) =====
     toks = set(_tokens(qn))
-    tema_tokens = toks - set(NIVEL_CANON.keys()) - {"en", "de", "sobre"}
+    tema_tokens = toks - set(NIVEL_CANON.keys()) - {"en", "de", "sobre", "la", "el"}
     tema_tokens = _expand_topic_tokens(tema_tokens)
 
-    # --- ¿municipio/sede exactos?
-    def _detect_municipio(text_norm: str) -> str | None:
-        for m in KNOWN_MUNICIPIOS:
-            if re.search(rf"\b{re.escape(m)}\b", text_norm):
-                return m
-        return None
+    if nivel and (municipios_detectados or sedes_detectadas):
+        return {"nivel": nivel, "location": {"municipio": municipios_detectados} if municipios_detectados else {"sede": sedes_detectadas}}
+    if municipios_detectados:
+        return {"location": {"municipio": municipios_detectados}}
+    if sedes_detectadas:
+        return {"location": {"sede": sedes_detectadas}}
 
-    def _detect_sede(text_norm: str) -> str | None:
-        # si mencionan la palabra "sede", prioriza sede
-        if "sede" in text_norm:
-            for s in KNOWN_SEDES:
-                if re.search(rf"\b{re.escape(s)}\b", text_norm):
-                    return s
-        # como fallback, intenta coincidencia directa
-        for s in KNOWN_SEDES:
-            if re.search(rf"\b{re.escape(s)}\b", text_norm):
-                return s
-        return None
-
-    mun = sede = None
-
-    # 1) Si hay preposición "... en|de|sobre X", intenta allí primero
-    if trailing:
-        mun = _detect_municipio(trailing)
-        sede = _detect_sede(trailing)
-
-    # 2) Soporta "nivel municipio" sin preposición (ej. "tecnologos popayan")
-    if not (mun or sede) and nivel:
-        mun = _detect_municipio(qn)
-        if not mun:
-            sede = _detect_sede(qn)
-
-    # 3) Ubicación sola (ej. "popayan", "la casona")
-    if not (mun or sede):
-        mun = _detect_municipio(qn)
-        if not mun:
-            sede = _detect_sede(qn)
-
-    # Si detectamos municipio/sede, NO tratemos esos tokens como tema
-    if mun or sede:
-        return {"nivel": nivel} | {"location": {"municipio": {mun}} if mun else {"sede": {sede}}}
-
-    # 4) nivel + tema / tema solo / nivel solo
     if nivel and tema_tokens:
         return {"nivel": nivel, "tema_tokens": tema_tokens}
     if tema_tokens:
@@ -322,60 +360,68 @@ def _search_programs(intent: dict) -> list:
         variants = BY_CODE.get(code, [])
         return [(code, i+1) for i in range(len(variants))]
 
-    # candidatos por hints
-    # --- candidatos por hints (con FILTRO DURO si hay ubicación) ---
+    # candidatos
     candidates = set()
 
-    # Si hay municipio: filtra duro SOLO a ese municipio
+    # ubicación: municipio
     if intent.get("location", {}).get("municipio"):
         for m in intent["location"]["municipio"]:
             for p in BY_MUNICIPIO.get(m, []):
                 candidates.add(id(p))
 
-    # Si hay sede (y no hay municipio ya aplicado): filtra duro por esa sede
-    elif intent.get("location", {}).get("sede"):
+    # ubicación: sede
+    if intent.get("location", {}).get("sede"):
         for s in intent["location"]["sede"]:
-            for p in BY_SEDE.get(s, []):
+            for p in BY_SEDE.get(_norm(s), []):
+                candidates.add(id(p))
+        grams = _ngrams_for_text(" ".join(intent["location"]["sede"]))
+        for g in grams:
+            for p in NG_SEDE.get(g, []):
                 candidates.add(id(p))
 
-    # Si NO hay ubicación, recolecta candidatos por tema/nivel como antes
-    else:
-        if intent.get("tema_tokens"):
-            grams = set()
-            for t in intent["tema_tokens"]:
-                grams |= _ngrams_for_text(t)
-            for g in grams:
-                for p in NG_TITLE.get(g, []):
-                    candidates.add(id(p))
+    # tema (si ya hay ubicación, intersecta para más precisión)
+    if intent.get("tema_tokens"):
+        grams = set()
+        for t in intent["tema_tokens"]:
+            grams |= _ngrams_for_text(t)
+        topic_ids = set()
+        for g in grams:
+            for p in NG_TITLE.get(g, []):
+                topic_ids.add(id(p))
+        candidates = (candidates & topic_ids) if candidates else (candidates | topic_ids)
 
-        if intent.get("nivel"):
-            # si no hubo tema, al menos candidatos del nivel
-            if not candidates:
-                for p in PROGRAMAS:
-                    if intent["nivel"] in _nivel_of(p):
-                        candidates.add(id(p))
-
-        if not candidates:
-            for p in PROGRAMAS:
-                candidates.add(id(p))
-
-    # puntuación y orden estable
+    # construye id→programa
     id2p = {id(p): p for p in PROGRAMAS}
-    scored = []
-    for pid in candidates:
-        p = id2p[pid]
-        scored.append((_score_program(p, intent), p))
-    scored.sort(key=lambda x: (-x[0], _norm(x[1].get("municipio") or x[1].get("ciudad") or ""), _fields_for_title(x[1])))
 
-    per_code_count = defaultdict(int)
-    result = []
+    # filtro estricto por nivel si está presente
+    if intent.get("nivel"):
+        if candidates:
+            candidates = {pid for pid in candidates if intent["nivel"] in _nivel_of(id2p[pid])}
+        else:
+            for pid, p in id2p.items():
+                if intent["nivel"] in _nivel_of(p):
+                    candidates.add(pid)
+
+    # si sigue vacío, último recurso: todo
+    if not candidates:
+        candidates = set(id2p.keys())
+
+    # puntuar y ordenar
+    scored = [(_score_program(id2p[pid], intent), id2p[pid]) for pid in candidates]
+    scored.sort(key=lambda x: (-x[0],
+                               _norm(x[1].get("municipio") or x[1].get("ciudad") or ""),
+                               _fields_for_title(x[1])))
+
+    # mapear a (code, ordinal)
+    per_code = defaultdict(int)
+    out = []
     for _sc, p in scored:
         code = _code_of(p)
-        if not code: continue
-        per_code_count[code] += 1
-        result.append((code, per_code_count[code]))
-    return result
-
+        if not code:
+            continue
+        per_code[code] += 1
+        out.append((code, per_code[code]))
+    return out
 # ========================= RENDER FICHAS =========================
 def _render_ficha(p, code: str):
     mun, sede, hor = _loc_fields(p)
@@ -526,7 +572,7 @@ def generar_respuesta(texto: str, show_all: bool = False, page: int = 0, page_si
             tema_txt = " ".join(sorted(intent["tema_tokens"]))
             header = f"{intent['nivel'].title()} sobre *{tema_txt}* (pág. {page+1}):"
         elif intent.get("tema_tokens"):
-            tema_txt = " ".join(sorted(intent["tema_tokens"]))
+            tema_txt = " ".join(t for t in _tokens(q) if t not in {"en","de","sobre"})
             header = f"Resultados para el tema *{tema_txt}* (pág. {page+1}):"
         elif intent.get("nivel"):
             header = f"Programas del nivel *{intent['nivel']}* (pág. {page+1}):"
