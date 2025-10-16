@@ -48,22 +48,50 @@ def _fields_for_topic(p: dict) -> str:
 # Mapa de niveles (clave = cómo lo escribe la gente, valor = forma canónica normalizada)
 NIVEL_CANON = {
     "tecnico": "tecnico",
-    "tecnicos": "tecnico",
-    "tecnólogo": "tecnologo",
+    "tecnicos": "tecnico", 
+    "tec": "tecnico",
+
+    "tecnologo": "tecnologo", 
     "tecnologos": "tecnologo",
-    "tecnologo": "tecnologo",
-    "auxiliar": "auxiliar",
+    "tecnologia": "tecnologo", 
+
+    "auxiliar": "auxiliar", 
     "auxiliares": "auxiliar",
-    "operario": "operario",
+    
+    "operario": "operario", 
     "operarios": "operario",
 }
 
 # Expandir tokens de tema (sinónimos básicos; puedes añadir más)
 _TOPIC_SYNONYMS = {
-    "contabilidad": {"contabilidad", "contable", "cuentas", "costos", "finanzas", "tributaria", "nomina"},
-    "salud": {"salud", "enfermeria", "enfermera", "hospitalario", "clinico", "enfermero", "clinica"},
-    "software": {"software", "programacion", "desarrollo", "sistemas", "computacion", },
-    "datos": {"datos", "data", "analitica", "bi", "inteligencia", "negocios"},
+    # Negocios/finanzas
+    "contabilidad": {
+        "contabilidad", "contable", "cuentas", "costos", "finanzas",
+        "tesoreria", "facturacion", "tributaria", "niif", "nomina"
+    },
+    "gestion empresarial": {"gestion", "empresarial", "gestion empresarial", "administracion"},
+    "logistica": {"logistica", "logistico", "suministros"},
+
+    # TIC
+    "software": {
+        "software", "programacion", "desarrollo", "sistemas",
+        "computacion", "analisis y desarrollo", "ads", "adsi"
+    },
+    "redes": {"redes", "telecomunicaciones", "teleinformatica", "teleinformaticos", "cisco"},
+
+    # Industria/ingenierias
+    "mecatronica": {"mecatronica", "automatizacion", "automatizacion industrial", "robotica"},
+    "electricidad": {"electricidad", "electrico", "electrica", "instalaciones"},
+    "construccion": {"construccion", "obra civil", "edificaciones", "albanileria"},
+
+    # Salud
+    "salud": {
+        "salud", "enfermeria", "enfermero", "enfermera",
+        "hospitalario", "clinico", "clinica", "aph", "atencion prehospitalaria"
+    },
+
+    # Deportes / actividad fisica
+    "deporte": {"deporte", "actividad fisica", "entrenamiento", "fisiologia"},
 }
 def _expand_topic_tokens(tokens:set) -> set:
     base = set(tokens)
@@ -107,21 +135,22 @@ NG_TITLE = defaultdict(list)        # ngram titulo -> [p,...]
 
 ALIAS_MUNICIPIO = {
     "popayan": {"popayan", "popayan", "popa", "ppyn"},
-    "popayan - vrd. el sendero": {"popayan", "popa", "ppyn", "popayan", "vereda el sendero", "vrd. el sendero", "el sendero"}
+    "popayan - vrd. el sendero": {"popayan - vrd. el sendero", "popayan - vereda el sendero", "vereda el sendero", "vrd. el sendero", "el sendero"},
     "santander de quilichao": {"santander de quilichao", "quilichao", "santander", "qilichao"},
     "guapi": {"guapi", "guapy", "guap"},
-    "la sierra": {"la sierra", "sierra", "siera", "cierra"},
+    "la sierra": {"la sierra", "sierra", "siera"},
     "mercaderes": {"mercaderes", "mercaderez"},
     "morales": {"morales", "moralez", "morale"},
-    "puerto tejada": {"puerto tejada", "puerto", "tejada"},
+    "puerto tejada": {"puerto tejada"},
     "silvia": {"silvia", "silv", "slv"},
     "timbio": {"timbio", "tmbio", "timbi"},
     "timbiqui": {"timbiqui"}
 }
 ALIAS_SEDE = {
     "la casona": {"la casona", "sede la casona", "casona"},
-    "calle 5": {"calle 5", "sena sede calle 5", "sede calle 5"},
-    "sede alto cauca": {"alto cauca", "sede alto cauca", "sede norte"}
+    "sena sede calle 5 con cra 14 esquina barrio valencia": {"calle 5", "sena sede calle 5", "sede calle 5", "barrio valencia", "ctpi barrio valencia"},
+    "sede alto cauca": {"alto cauca", "sede alto cauca", "sede norte", "ctpi norte"},
+    "sede la samaria": {"sede la samaria", "la samaria", "samaria"}
 }
 
 def _alias_lookup(bucket: dict, q_norm: str) -> set:
