@@ -65,29 +65,28 @@ NIVEL_CANON = {
 # Expandir tokens de tema (sinónimos básicos; puedes añadir más)
 _TOPIC_SYNONYMS = {
     # Negocios/finanzas
-    "contabilidad": {
+    "gestion empresarial": {
         "contabilidad", "contable", "cuentas", "costos", "finanzas",
-        "tesoreria", "facturacion", "tributaria", "niif", "nomina"
+        "tesoreria", "facturacion", "tributaria", "nomina"
     },
     "gestion empresarial": {"gestion", "empresarial", "gestion empresarial", "administracion"},
     "logistica": {"logistica", "logistico", "suministros"},
 
     # TIC
-    "software": {
+    "analisis y desarrollo de software": {
         "software", "programacion", "desarrollo", "sistemas",
-        "computacion", "analisis y desarrollo", "ads", "adsi"
+        "computacion", "analisis y desarrollo", "ads", "adso", "analisis y desarrollo de software"
     },
     "redes": {"redes", "telecomunicaciones", "teleinformatica", "teleinformaticos", "cisco"},
 
     # Industria/ingenierias
-    "mecatronica": {"mecatronica", "automatizacion", "automatizacion industrial", "robotica"},
-    "electricidad": {"electricidad", "electrico", "electrica", "instalaciones"},
-    "construccion": {"construccion", "obra civil", "edificaciones", "albanileria"},
+    "automatizacion de sistemas mecatronicos": {"mecatronica", "automatizacion", "automatizacion industrial", "robotica", "sistemas mecatronicos"},
+    "electricidad industrial": {"electricidad", "electrico", "electrica", "instalaciones electricas"},
+    "construccion": {"construccion", "obra civil", "edificaciones", "albañileria"},
 
     # Salud
-    "salud": {
-        "salud", "enfermeria", "enfermero", "enfermera",
-        "hospitalario", "clinico", "clinica", "aph", "atencion prehospitalaria"
+    "supervision en sistemas de agua y saneamiento": {
+        "supervision", "agua", "sistemas de agua", "saneamiento"
     },
 
     # Deportes / actividad fisica
@@ -121,6 +120,13 @@ def _loc_fields(p):
         p.get("horario") or p.get("jornada") or p.get("dias") or p.get("días") or "",
     )
 
+def _ordinal_for_variant(code: str, p_obj) -> int:
+    lst = BY_CODE.get(str(code).strip(), [])
+    for i, pi in enumerate(lst, start=1):
+        if pi is p_obj:
+            return i
+    return 1
+
 def _loc_text(p):
     c, s, h = _loc_fields(p)
     return _norm(" ".join([str(x) for x in (c, s, h) if x]))
@@ -132,15 +138,14 @@ def _fields_for_title(p):
 BY_CODE = defaultdict(list)         # codigo -> [variant,...]
 BY_MUNICIPIO = defaultdict(list)    # municipio_norm -> [p,...]
 BY_SEDE = defaultdict(list)         # sede_norm -> [p,...]
-KNOWN_MUNICIPIOS = set(BY_MUNICIPIO.keys())
-KNOWN_SEDES = set(BY_SEDE.keys())
 NG_SEDE = defaultdict(list)         # ngram sede -> [p,...]
 NG_TITLE = defaultdict(list)        # ngram titulo -> [p,...]
 
+# ---- Alias (evita genéricos como "santander") ----
 ALIAS_MUNICIPIO = {
-    "popayan": {"popayan", "popayan", "popa", "ppyn"},
+    "popayan": {"popayan", "popa", "ppyn"},
     "popayan - vrd. el sendero": {"popayan - vrd. el sendero", "popayan - vereda el sendero", "vereda el sendero", "vrd. el sendero", "el sendero"},
-    "santander de quilichao": {"santander de quilichao", "quilichao", "santander", "qilichao"},
+    "santander de quilichao": {"santander de quilichao", "quilichao", "qilichao"},
     "guapi": {"guapi", "guapy", "guap"},
     "la sierra": {"la sierra", "sierra", "siera"},
     "mercaderes": {"mercaderes", "mercaderez"},
@@ -148,13 +153,15 @@ ALIAS_MUNICIPIO = {
     "puerto tejada": {"puerto tejada"},
     "silvia": {"silvia", "silv", "slv"},
     "timbio": {"timbio", "tmbio", "timbi"},
-    "timbiqui": {"timbiqui"}
+    "timbiqui": {"timbiqui"},
 }
 ALIAS_SEDE = {
     "la casona": {"la casona", "sede la casona", "casona"},
-    "sena sede calle 5 con cra 14 esquina barrio valencia": {"calle 5", "sena sede calle 5", "sede calle 5", "barrio valencia", "ctpi barrio valencia"},
+    "sena sede calle 5 con cra 14 esquina barrio valencia": {
+        "calle 5", "sena sede calle 5", "sede calle 5", "barrio valencia", "ctpi barrio valencia"
+    },
     "sede alto cauca": {"alto cauca", "sede alto cauca", "sede norte", "ctpi norte"},
-    "sede la samaria": {"sede la samaria", "la samaria", "samaria"}
+    "sede la samaria": {"sede la samaria", "la samaria", "samaria"},
 }
 
 def _alias_lookup(bucket: dict, q_norm: str) -> set:
@@ -177,150 +184,159 @@ def _ngrams_for_text(s: str) -> set:
                 grams.add(t)
     return grams
 
+# --- Index keys para municipios: forma completa + base (antes de "-") ---
+def _mun_index_keys(mun_raw: str) -> set:
+    if not mun_raw:
+        return set()
+    m = _norm(mun_raw)
+    keys = set()
+    if m:
+        keys.add(m)
+    base = re.split(r"\s*[-–]\s*", m)[0].strip()
+    if base:
+        keys.add(base)
+    m_exp = m.replace("vrd.", "vereda").replace("vrd", "vereda")
+    if m_exp != m:
+        keys.add(m_exp)
+        base2 = re.split(r"\s*[-–]\s*", m_exp)[0].strip()
+        if base2:
+            keys.add(base2)
+    return {k for k in keys if k}
+
+# --- Ordinal real de una variante dentro de su código ---
+def _ordinal_for_variant(code: str, p_obj) -> int:
+    lst = BY_CODE.get(str(code).strip(), [])
+    for i, pi in enumerate(lst, start=1):
+        if pi is p_obj:
+            return i
+    return 1
+
+# ---- Construcción de índices principales ----
 if not BY_CODE:
     for p in PROGRAMAS:
         code = _code_of(p)
         if not code:
             continue
         BY_CODE[code].append(p)
+
         mun, sede, _hr = _loc_fields(p)
+
+        # municipio: indexa por forma completa y base (incluye "popayan - vrd. el sendero" bajo "popayan")
         if mun:
-            BY_MUNICIPIO[_norm(mun)].append(p)
+            for key in _mun_index_keys(mun):
+                BY_MUNICIPIO[key].append(p)
+
+        # sede
         if sede:
             sede_n = _norm(sede)
             BY_SEDE[sede_n].append(p)
             for g in _ngrams_for_text(sede_n):
                 NG_SEDE[g].append(p)
+
+        # título / contenido para temas
         title = _fields_for_title(p)
         if title:
             for g in _ngrams_for_text(title):
                 NG_TITLE[g].append(p)
 
-def _nth_by_code(code: str, n: int):
-    lst = BY_CODE.get(str(code).strip(), [])
-    return lst[n - 1] if 1 <= n <= len(lst) else None
+# ---- Conjuntos de llaves conocidas (ahora SÍ pobladas) ----
+KNOWN_MUNICIPIOS = set(BY_MUNICIPIO.keys())
+KNOWN_SEDES = set(BY_SEDE.keys())
 
-def _find_by_code(code: str):
-    lst = BY_CODE.get(str(code).strip(), [])
-    return lst[0] if lst else None
-
+# ---- Vista normalizada por código (programa + ofertas) ----
+PROGRAMAS_BY_CODE = {}
+for p in PROGRAMAS:
+    code = _code_of(p)
+    if not code:
+        continue
+    base = PROGRAMAS_BY_CODE.setdefault(code, {
+        "code": code,
+        "nivel": p.get("nivel"),
+        "programa": p.get("programa") or p.get("nombre") or "",
+        "perfil": p.get("perfil") or p.get("perfil_egresado") or "",
+        "competencias": p.get("competencias") or "",
+        "certificacion": p.get("certificacion") or p.get("certificación") or "",
+        "ofertas": [],
+    })
+    mun, sede, hor = _loc_fields(p)
+    base["ofertas"].append({
+        "ordinal": _ordinal_for_variant(code, p),  # ahora BY_CODE ya está lleno
+        "municipio": mun,
+        "sede": sede,
+        "horario": hor,
+    })
 # ========================= PARSER DE INTENCIÓN =========================
 def _parse_intent(q: str) -> dict:
     qn = _norm(q)
-
-    # code-ordinal
     m = re.fullmatch(r"\s*(\d{5,7})-(\d{1,2})\s*", qn or "")
-    if m:
-        return {"code": m.group(1), "ordinal": int(m.group(2))}
-
-    # code solo
+    if m: return {"code": m.group(1), "ordinal": int(m.group(2))}
     m = re.fullmatch(r"\s*(\d{5,7})\s*", qn or "")
-    if m:
-        return {"code": m.group(1)}
+    if m: return {"code": m.group(1)}
 
-    # nivel
     nivel = None
     for canon, nivel_txt in NIVEL_CANON.items():
         if re.search(rf"\b{re.escape(canon)}s?\b", qn):
-            nivel = nivel_txt
-            break
+            nivel = nivel_txt; break
 
-    # ===== 1) Captura explícita: "… (en|sobre|de) <cola>" =====
-    tail_txt = ""
-    m_tail = re.search(r"(?:\b(en|sobre|de)\b)\s+(.+)$", qn)
+    prep = ""; tail_txt = ""
+    m_tail = re.search(r"(?:\b(en|de|sobre)\b)\s+(.+)$", qn)
     if m_tail:
-        tail_txt = _norm(m_tail.group(2))  # preserva orden original en tail
+        prep = m_tail.group(1); tail_txt = _norm(m_tail.group(2))
+        if prep in {"en","de"}:
+            mun_detect, sede_detect = set(), set()
+            for k in BY_MUNICIPIO.keys():
+                if re.search(rf"\b{re.escape(k)}\b", tail_txt): mun_detect.add(k)
+            for canon, vars in ALIAS_MUNICIPIO.items():
+                for v in vars:
+                    if re.search(rf"\b{re.escape(v)}\b", tail_txt):
+                        for vv in ALIAS_MUNICIPIO.get(canon,{canon}):
+                            if vv in BY_MUNICIPIO: mun_detect.add(vv)
+            for k in BY_SEDE.keys():
+                if re.search(rf"\b{re.escape(k)}\b", tail_txt): sede_detect.add(k)
+            for canon, vars in ALIAS_SEDE.items():
+                for v in vars:
+                    if re.search(rf"\b{re.escape(v)}\b", tail_txt): sede_detect.add(_norm(v))
+            for g in _ngrams_for_text(tail_txt):
+                if g in NG_SEDE:
+                    for p in NG_SEDE[g]:
+                        s = _norm(p.get("sede") or p.get("centro") or p.get("ambiente") or "")
+                        if s: sede_detect.add(s)
+            if mun_detect or sede_detect:
+                return {"nivel": nivel, "location": {"municipio": mun_detect} if mun_detect else {"sede": sede_detect}, "tail_text": tail_txt}
 
-        # ¿municipio en la cola?
-        mun_detect = set()
-        # a) exacto por índice
-        for mun_key in BY_MUNICIPIO.keys():
-            if re.search(rf"\b{re.escape(mun_key)}\b", tail_txt):
-                mun_detect.add(mun_key)
-        # b) por alias
-        for canon, variants in ALIAS_MUNICIPIO.items():
-            for v in variants:
-                if re.search(rf"\b{re.escape(v)}\b", tail_txt):
-                    # expande a las variantes que existan en índice
-                    for vv in ALIAS_MUNICIPIO.get(canon, {canon}):
-                        if vv in BY_MUNICIPIO:
-                            mun_detect.add(vv)
+        if prep == "sobre":
+            tema_tokens = _expand_topic_tokens(set(_tokens(tail_txt)))
+            return {"nivel": nivel, "tema_tokens": tema_tokens} if nivel else {"tema_tokens": tema_tokens}
 
-        # ¿sede en la cola?
-        sede_detect = set()
-        # a) exacto por índice
-        for sede_key in BY_SEDE.keys():
-            if re.search(rf"\b{re.escape(sede_key)}\b", tail_txt):
-                sede_detect.add(sede_key)
-        # b) por alias
-        for canon, variants in ALIAS_SEDE.items():
-            for v in variants:
-                if re.search(rf"\b{re.escape(v)}\b", tail_txt):
-                    sede_detect.add(_norm(v))
-        # c) por n-gram de la cola
-        grams_tail = _ngrams_for_text(tail_txt)
-        for g in grams_tail:
-            if g in NG_SEDE:
-                for p in NG_SEDE[g]:
-                    sede_n = _norm(p.get("sede") or p.get("centro") or p.get("ambiente") or "")
-                    if sede_n:
-                        sede_detect.add(sede_n)
-
-        # Si la cola es ubicación, devolvemos intent con location
-        if mun_detect or sede_detect:
-            return {
-                "nivel": nivel,
-                "location": {"municipio": mun_detect} if mun_detect else {"sede": sede_detect},
-                # guardamos la cola para encabezado bonito
-                "tail_text": tail_txt
-            }
-
-    # ===== 2) Detección libre (sin "en/sobre/de") =====
-    municipios_detectados = set()
-    for mun_key in BY_MUNICIPIO.keys():
-        if re.search(rf"\b{re.escape(mun_key)}\b", qn):
-            municipios_detectados.add(mun_key)
-    for canon, variants in ALIAS_MUNICIPIO.items():
-        for v in variants:
+    municipios_detectados, sedes_detectadas = set(), set()
+    for k in BY_MUNICIPIO.keys():
+        if re.search(rf"\b{re.escape(k)}\b", qn): municipios_detectados.add(k)
+    for canon, vars in ALIAS_MUNICIPIO.items():
+        for v in vars:
             if re.search(rf"\b{re.escape(v)}\b", qn):
-                for vv in ALIAS_MUNICIPIO.get(canon, {canon}):
-                    if vv in BY_MUNICIPIO:
-                        municipios_detectados.add(vv)
-
-    sedes_detectadas = set()
-    for sede_key in BY_SEDE.keys():
-        if re.search(rf"\b{re.escape(sede_key)}\b", qn):
-            sedes_detectadas.add(sede_key)
-    for canon, variants in ALIAS_SEDE.items():
-        for v in variants:
-            if re.search(rf"\b{re.escape(v)}\b", qn):
-                sedes_detectadas.add(_norm(v))
-    grams_q = _ngrams_for_text(qn)
-    for g in grams_q:
+                for vv in ALIAS_MUNICIPIO.get(canon,{canon}):
+                    if vv in BY_MUNICIPIO: municipios_detectados.add(vv)
+    for k in BY_SEDE.keys():
+        if re.search(rf"\b{re.escape(k)}\b", qn): sedes_detectadas.add(k)
+    for canon, vars in ALIAS_SEDE.items():
+        for v in vars:
+            if re.search(rf"\b{re.escape(v)}\b", qn): sedes_detectadas.add(_norm(v))
+    for g in _ngrams_for_text(qn):
         if g in NG_SEDE:
             for p in NG_SEDE[g]:
-                sede_n = _norm(p.get("sede") or p.get("centro") or p.get("ambiente") or "")
-                if sede_n:
-                    sedes_detectadas.add(sede_n)
+                s = _norm(p.get("sede") or p.get("centro") or p.get("ambiente") or "")
+                if s: sedes_detectadas.add(s)
 
-    # ===== 3) Tema (después de intentar ubicación) =====
     toks = set(_tokens(qn))
-    tema_tokens = toks - set(NIVEL_CANON.keys()) - {"en", "de", "sobre", "la", "el"}
-    tema_tokens = _expand_topic_tokens(tema_tokens)
+    tema_tokens = _expand_topic_tokens(toks - set(NIVEL_CANON.keys()) - {"en","de","sobre","la","el"})
 
     if nivel and (municipios_detectados or sedes_detectadas):
         return {"nivel": nivel, "location": {"municipio": municipios_detectados} if municipios_detectados else {"sede": sedes_detectadas}}
-    if municipios_detectados:
-        return {"location": {"municipio": municipios_detectados}}
-    if sedes_detectadas:
-        return {"location": {"sede": sedes_detectadas}}
-
-    if nivel and tema_tokens:
-        return {"nivel": nivel, "tema_tokens": tema_tokens}
-    if tema_tokens:
-        return {"tema_tokens": tema_tokens}
-    if nivel:
-        return {"nivel": nivel}
+    if municipios_detectados: return {"location": {"municipio": municipios_detectados}}
+    if sedes_detectadas: return {"location": {"sede": sedes_detectadas}}
+    if nivel and tema_tokens: return {"nivel": nivel, "tema_tokens": tema_tokens}
+    if tema_tokens: return {"tema_tokens": tema_tokens}
+    if nivel: return {"nivel": nivel}
     return {}
 # ========================= RANKING/BÚSQUEDA =========================
 def _score_program(p, intent) -> int:
@@ -362,10 +378,11 @@ def _search_programs(intent: dict) -> list:
     if intent.get("code"):
         code = intent["code"]
         variants = BY_CODE.get(code, [])
-        return [(code, i+1) for i in range(len(variants))]
+        return [(code, i + 1) for i in range(len(variants))]
 
     # candidatos
     candidates = set()
+    had_location = bool(intent.get("location"))
 
     # ubicación: municipio
     if intent.get("location", {}).get("municipio"):
@@ -394,7 +411,7 @@ def _search_programs(intent: dict) -> list:
                 topic_ids.add(id(p))
         candidates = (candidates & topic_ids) if candidates else (candidates | topic_ids)
 
-    # construye id→programa
+    # construye id→programa (una sola vez)
     id2p = {id(p): p for p in PROGRAMAS}
 
     # filtro estricto por nivel si está presente
@@ -402,30 +419,41 @@ def _search_programs(intent: dict) -> list:
         if candidates:
             candidates = {pid for pid in candidates if intent["nivel"] in _nivel_of(id2p[pid])}
         else:
-            for pid, p in id2p.items():
-                if intent["nivel"] in _nivel_of(p):
-                    candidates.add(pid)
+            # solo si NO hubo ubicación/tema; si hubo, no rellenamos con todo
+            if not had_location and not intent.get("tema_tokens"):
+                for pid, p in id2p.items():
+                    if intent["nivel"] in _nivel_of(p):
+                        candidates.add(pid)
 
-    # si sigue vacío, último recurso: todo
+    # si sigue vacío, última opción
     if not candidates:
+        if had_location or intent.get("tema_tokens"):
+            return []  # no mezclar si pidió ubicación/tema explícito
         candidates = set(id2p.keys())
 
     # puntuar y ordenar
     scored = [(_score_program(id2p[pid], intent), id2p[pid]) for pid in candidates]
-    scored.sort(key=lambda x: (-x[0],
-                               _norm(x[1].get("municipio") or x[1].get("ciudad") or ""),
-                               _fields_for_title(x[1])))
+    scored.sort(
+        key=lambda x: (
+            -x[0],
+            _norm(x[1].get("municipio") or x[1].get("ciudad") or ""),
+            _fields_for_title(x[1]),
+        )
+    )
 
-    # mapear a (code, ordinal)
-    per_code = defaultdict(int)
-    out = []
+    # map a (code, ord) usando el ordinal real de esa variante
+    seen, result = set(), []
     for _sc, p in scored:
         code = _code_of(p)
         if not code:
             continue
-        per_code[code] += 1
-        out.append((code, per_code[code]))
-    return out
+        ord_n = _ordinal_for_variant(code, p)
+        key = (code, ord_n)
+        if key in seen:
+            continue
+        seen.add(key)
+        result.append(key)
+    return result
 # ========================= RENDER FICHAS =========================
 def _render_ficha(p, code: str):
     mun, sede, hor = _loc_fields(p)
