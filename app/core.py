@@ -518,6 +518,22 @@ def top_codigos_para(texto: str, limit: int = 5):
         if len(out) >= limit: break
     return out
 
+def _nth_by_code(code: str, n: int):
+    """
+    Devuelve la n-ésima variante (1-based) de un programa por código,
+    según el orden en BY_CODE[code]. Si no existe, retorna None.
+    """
+    lst = BY_CODE.get(str(code).strip(), [])
+    return lst[n - 1] if 1 <= n <= len(lst) else None
+
+def _find_by_code(code: str):
+    """
+    Devuelve la primera variante para un código (o None si no existe).
+    """
+    lst = BY_CODE.get(str(code).strip(), [])
+    return lst[0] if lst else None
+
+
 # ========================= GENERAR RESPUESTA =========================
 def generar_respuesta(texto: str, show_all: bool = False, page: int = 0, page_size: int = 10) -> str:
     if not texto:
