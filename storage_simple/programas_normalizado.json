@@ -1,0 +1,1122 @@
+[
+  {
+    "codigo": "961202",
+    "programa": "Fabricacion Metalmecanica",
+    "programa_norm": "fabricacion metalmecanica",
+    "nivel": "Auxiliar",
+    "nivel_norm": "auxiliar",
+    "perfil": "Apoya procesos de fabricación metalmecánica: alistamiento de materiales, herramientas e insumos; ajuste manual; disposición de residuos; ejecución de soldadura SMAW en aceros al carbono.",
+    "competencias": [
+      "Alistar materiales, equipos y herramientas",
+      "Aplicar soldadura SMAW en diferentes posiciones",
+      "Cumplir normas HSE y de calidad; diligenciar formatos",
+      "Elaborar y leer planos mecánicos básicos"
+    ],
+    "certificacion": "AUXILIAR EN FABRICACIÓN METALMECÁNICA",
+    "palabras_clave": [
+      "fabricacion",
+      "metalmecanica"
+    ],
+    "ofertas": [
+      {
+        "municipio": "Puerto Tejada",
+        "municipio_norm": "puerto tejada",
+        "municipio_base": "Puerto Tejada",
+        "municipio_base_norm": "puerto tejada",
+        "sede_nombre": "Alcaldía Municipal",
+        "sede_norm": "alcaldia municipal",
+        "ambiente": null,
+        "horario": "L a V 07:00–13:00",
+        "ordinal": 1
+      }
+    ]
+  },
+  {
+    "codigo": "836201",
+    "programa": "Construccion De Estructuras En Concreto",
+    "programa_norm": "construccion de estructuras en concreto",
+    "nivel": "Operario",
+    "nivel_norm": "operario",
+    "perfil": "Opera en la construcción de estructuras en concreto: clasifica, dispone y figura acero de refuerzo, dispone encofrados, prepara concreto y ejecuta obras cumpliendo normas de seguridad y calidad.",
+    "competencias": [
+      "Clasificar y disponer acero de refuerzo",
+      "Ejecutar acabados en estructuras de concreto",
+      "Montar y desmontar encofrados",
+      "Preparar y vaciar concreto"
+    ],
+    "certificacion": "OPERARIO EN CONSTRUCCIÓN DE ESTRUCTURAS EN CONCRETO",
+    "palabras_clave": [
+      "construccion",
+      "estructuras",
+      "concreto"
+    ],
+    "ofertas": [
+      {
+        "municipio": "Timbiqui",
+        "municipio_norm": "timbiqui",
+        "municipio_base": "Timbiqui",
+        "municipio_base_norm": "timbiqui",
+        "sede_nombre": "Alcaldía Municipal",
+        "sede_norm": "alcaldia municipal",
+        "ambiente": null,
+        "horario": "L a V 07:00–13:00",
+        "ordinal": 1
+      }
+    ]
+  },
+  {
+    "codigo": "935100",
+    "programa": "Manejo De Maquinaria De Confeccion Industrial",
+    "programa_norm": "manejo de maquinaria de confeccion industrial",
+    "nivel": "Operario",
+    "nivel_norm": "operario",
+    "perfil": "Opera maquinaria de confección industrial cumpliendo parámetros de calidad, productividad y métodos de trabajo; se integra a procesos productivos del sector confección.",
+    "competencias": [
+      "Aplicar normas de seguridad y calidad en el proceso",
+      "Confeccionar y reportar producción",
+      "Preparar piezas y operar máquinas de confección"
+    ],
+    "certificacion": "OPERARIO EN MANEJO DE MAQUINARIA DE CONFECCIÓN INDUSTRIAL",
+    "palabras_clave": [
+      "confeccion",
+      "manejo",
+      "maquinaria"
+    ],
+    "ofertas": [
+      {
+        "municipio": "Popayán",
+        "municipio_norm": "popayan",
+        "municipio_base": "Popayan",
+        "municipio_base_norm": "popayan",
+        "sede_nombre": "Alto Cauca",
+        "sede_norm": "alto cauca",
+        "ambiente": "Confecciones 2",
+        "horario": "L a V 13:00–19:00",
+        "ordinal": 1
+      }
+    ]
+  },
+  {
+    "codigo": "134104",
+    "programa": "Asistencia Para La Inteligencia Empresarial",
+    "programa_norm": "asistencia para la inteligencia empresarial",
+    "nivel": "Técnico",
+    "nivel_norm": "tecnico",
+    "perfil": "Apoya la planeación estratégica con herramientas digitales y social media; opera herramientas informáticas para la gestión administrativa; aplica técnicas básicas de analítica de datos y herramientas estadísticas para generar reportes que orienten decisiones administrativas y operativas.",
+    "competencias": [
+      "Aplicar técnicas de analítica de datos para procesos operativos y de marketing digital",
+      "Apoyar la planeación estratégica usando herramientas digitales y social media",
+      "Operar herramientas informáticas y digitales en apoyo a la gestión administrativa",
+      "Respaldar protocolos de servicio y atención al cliente (PQRS)",
+      "Utilizar herramientas estadísticas para reportes de gestión"
+    ],
+    "certificacion": "TÉCNICO EN ASISTENCIA PARA LA INTELIGENCIA EMPRESARIAL",
+    "palabras_clave": [
+      "asistencia",
+      "inteligencia",
+      "empresarial"
+    ],
+    "ofertas": [
+      {
+        "municipio": "Popayán",
+        "municipio_norm": "popayan",
+        "municipio_base": "Popayan",
+        "municipio_base_norm": "popayan",
+        "sede_nombre": "Alto Cauca",
+        "sede_norm": "alto cauca",
+        "ambiente": "Gestión Empresarial 1",
+        "horario": "L a V 18:00–22:00 / S 08:00–18:00",
+        "ordinal": 1
+      }
+    ]
+  },
+  {
+    "codigo": "836138",
+    "programa": "Construccion De Edificaciones",
+    "programa_norm": "construccion de edificaciones",
+    "nivel": "Técnico",
+    "nivel_norm": "tecnico",
+    "perfil": "Construye y rehabilita edificaciones aplicando criterios de sostenibilidad, optimizando recursos materiales, energía, agua y residuos. Puede desempeñarse como oficial de construcción, mampostería y estructuras.",
+    "competencias": [
+      "Aplicar normas de construcción sismo-resistente (NSR-10)",
+      "Ejecutar instalaciones hidráulicas y sanitarias básicas",
+      "Levantar y reparar muros y estructuras con diferentes materiales",
+      "Realizar acabados y cubiertas"
+    ],
+    "certificacion": "TÉCNICO EN CONSTRUCCIÓN DE EDIFICACIONES",
+    "palabras_clave": [
+      "construccion",
+      "edificaciones"
+    ],
+    "ofertas": [
+      {
+        "municipio": "La Sierra",
+        "municipio_norm": "la sierra",
+        "municipio_base": "La Sierra",
+        "municipio_base_norm": "la sierra",
+        "sede_nombre": "Colegio Agropecuario La Cuchilla",
+        "sede_norm": "colegio agropecuario la cuchilla",
+        "ambiente": null,
+        "horario": "L a V 07:00–13:00",
+        "ordinal": 1
+      },
+      {
+        "municipio": "Popayán",
+        "municipio_norm": "popayan",
+        "municipio_base": "Popayan",
+        "municipio_base_norm": "popayan",
+        "sede_nombre": "Alto Cauca",
+        "sede_norm": "alto cauca",
+        "ambiente": "Construccion - Aula 205",
+        "horario": "L a V 07:00–13:00",
+        "ordinal": 2
+      },
+      {
+        "municipio": "Popayán - Vrd. El Sendero",
+        "municipio_norm": "popayan - vrd el sendero",
+        "municipio_base": "Popayan",
+        "municipio_base_norm": "popayan",
+        "sede_nombre": "Salón Comunal",
+        "sede_norm": "salon comunal",
+        "ambiente": null,
+        "horario": "L a V 07:00–13:00",
+        "ordinal": 3
+      },
+      {
+        "municipio": "Timbio",
+        "municipio_norm": "timbio",
+        "municipio_base": "Timbio",
+        "municipio_base_norm": "timbio",
+        "sede_nombre": "Alcaldía Municipal",
+        "sede_norm": "alcaldia municipal",
+        "ambiente": null,
+        "horario": "L a V 07:00–13:00",
+        "ordinal": 4
+      }
+    ]
+  },
+  {
+    "codigo": "836135",
+    "programa": "Construcciones Livianas Industrializadas En Seco",
+    "programa_norm": "construcciones livianas industrializadas en seco",
+    "nivel": "Técnico",
+    "nivel_norm": "tecnico",
+    "perfil": "Construye estructuras livianas industrializadas en seco (drywall, paneles, placas), aplica acabados, interpreta planos y normas vigentes, elabora presupuestos y programaciones de obra.",
+    "competencias": [
+      "Aplicar acabados en paneles y placas",
+      "Construir estructuras livianas en seco",
+      "Elaborar presupuestos y cronogramas de actividades",
+      "Interpretar planos y manuales de instalación"
+    ],
+    "certificacion": "TÉCNICO EN CONSTRUCCIONES LIVIANAS INDUSTRIALIZADAS EN SECO",
+    "palabras_clave": [
+      "construcciones",
+      "industrializadas",
+      "livianas",
+      "seco"
+    ],
+    "ofertas": [
+      {
+        "municipio": "Popayán",
+        "municipio_norm": "popayan",
+        "municipio_base": "Popayan",
+        "municipio_base_norm": "popayan",
+        "sede_nombre": "Alto Cauca",
+        "sede_norm": "alto cauca",
+        "ambiente": "Hidrosanitarias",
+        "horario": "L a V 18:00–22:00 / S 08:00–18:00",
+        "ordinal": 1
+      }
+    ]
+  },
+  {
+    "codigo": "664212",
+    "programa": "Ejecucion De Programas Deportivos",
+    "programa_norm": "ejecucion de programas deportivos",
+    "nivel": "Técnico",
+    "nivel_norm": "tecnico",
+    "perfil": "Apoya la ejecución de actividades y programas deportivos, promueve la práctica en diferentes grupos poblacionales y genera informes de ejecución. Contribuye al desarrollo físico y mental de los participantes con responsabilidad social.",
+    "competencias": [
+      "Alistar materiales e insumos para eventos deportivos",
+      "Apoyar entrenamientos y prácticas deportivas",
+      "Generar informes de ejecución y resultados de actividades",
+      "Promocionar actividades deportivas en comunidades"
+    ],
+    "certificacion": "TÉCNICO EN EJECUCIÓN DE PROGRAMAS DEPORTIVOS",
+    "palabras_clave": [
+      "deportivos",
+      "ejecucion",
+      "programas"
+    ],
+    "ofertas": [
+      {
+        "municipio": "Popayán",
+        "municipio_norm": "popayan",
+        "municipio_base": "Popayan",
+        "municipio_base_norm": "popayan",
+        "sede_nombre": "Calle 5",
+        "sede_norm": "calle 5",
+        "ambiente": null,
+        "horario": "L a V 07:00–13:00",
+        "ordinal": 1
+      },
+      {
+        "municipio": "Popayán",
+        "municipio_norm": "popayan",
+        "municipio_base": "Popayan",
+        "municipio_base_norm": "popayan",
+        "sede_nombre": "Calle 5",
+        "sede_norm": "calle 5",
+        "ambiente": null,
+        "horario": "L a V 13:00–19:00",
+        "ordinal": 2
+      }
+    ]
+  },
+  {
+    "codigo": "522211",
+    "programa": "Elaboracion De Audiovisuales",
+    "programa_norm": "elaboracion de audiovisuales",
+    "nivel": "Técnico",
+    "nivel_norm": "tecnico",
+    "perfil": "Realiza procesos audiovisuales en preproducción, producción y postproducción. Puede desempeñarse como camarógrafo, microfonista, editor, sonidista o asistente de producción en empresas del sector audiovisual y medios.",
+    "competencias": [
+      "Diseñar iluminación, sonido y ambientación para proyectos",
+      "Ejecutar proyectos audiovisuales cumpliendo estándares de calidad",
+      "Grabar y editar contenidos audiovisuales de diversos géneros",
+      "Planear y documentar procesos de producción audiovisual"
+    ],
+    "certificacion": "TÉCNICO EN ELABORACIÓN DE AUDIOVISUALES",
+    "palabras_clave": [
+      "audiovisuales",
+      "elaboracion"
+    ],
+    "ofertas": [
+      {
+        "municipio": "Popayán",
+        "municipio_norm": "popayan",
+        "municipio_base": "Popayan",
+        "municipio_base_norm": "popayan",
+        "sede_nombre": "Alto Cauca",
+        "sede_norm": "alto cauca",
+        "ambiente": "Audiovisuales 1",
+        "horario": "L a V 13:00–19:00",
+        "ordinal": 1
+      }
+    ]
+  },
+  {
+    "codigo": "842200",
+    "programa": "Elaboracion De Prendas De Vestir Sobre Medidas",
+    "programa_norm": "elaboracion de prendas de vestir sobre medidas",
+    "nivel": "Técnico",
+    "nivel_norm": "tecnico",
+    "perfil": "Realiza el proceso técnico de elaboración de prendas de vestir sobre medidas: interpreta diseños, toma medidas, traza y transforma moldes, corta, ensambla y realiza acabados con criterios de calidad y servicio al cliente.",
+    "competencias": [
+      "Cortar, confeccionar y dar acabados a prendas",
+      "Interpretar diseños y requerimientos del cliente",
+      "Orientar al cliente y calcular costos",
+      "Trazar y transformar moldes sobre medidas"
+    ],
+    "certificacion": "TÉCNICO EN ELABORACIÓN DE PRENDAS DE VESTIR SOBRE MEDIDAS",
+    "palabras_clave": [
+      "elaboracion",
+      "medidas",
+      "prendas",
+      "sobre",
+      "vestir"
+    ],
+    "ofertas": [
+      {
+        "municipio": "Silvia",
+        "municipio_norm": "silvia",
+        "municipio_base": "Silvia",
+        "municipio_base_norm": "silvia",
+        "sede_nombre": "Alcaldía Municipal",
+        "sede_norm": "alcaldia municipal",
+        "ambiente": null,
+        "horario": "L a V 13:00–18:00 / S 08:00–18:00",
+        "ordinal": 1
+      }
+    ]
+  },
+  {
+    "codigo": "233102",
+    "programa": "Instalacion De Redes De Computadores",
+    "programa_norm": "instalacion de redes de computadores",
+    "nivel": "Técnico",
+    "nivel_norm": "tecnico",
+    "perfil": "Instala sistemas de cableado estructurado, redes inalámbricas y redes eléctricas asociadas a datos en edificaciones y campus, aplicando estándares y normativas del sector.",
+    "competencias": [
+      "Certificar redes de datos y elaborar informes técnicos",
+      "Identificar riesgos y cumplir normas de seguridad en el área de trabajo",
+      "Instalar cableado estructurado y redes inalámbricas"
+    ],
+    "certificacion": "TÉCNICO EN INSTALACIÓN DE REDES DE COMPUTADORES",
+    "palabras_clave": [
+      "redes",
+      "instalacion",
+      "computadores"
+    ],
+    "ofertas": [
+      {
+        "municipio": "Popayán",
+        "municipio_norm": "popayan",
+        "municipio_base": "Popayan",
+        "municipio_base_norm": "popayan",
+        "sede_nombre": "Alto Cauca",
+        "sede_norm": "alto cauca",
+        "ambiente": "Redes De Datos",
+        "horario": "L a V 18:00–22:00 / S 08:00–18:00",
+        "ordinal": 1
+      }
+    ]
+  },
+  {
+    "codigo": "832202",
+    "programa": "Instalacion De Sistemas Electricos Residenciales Y Comerciales",
+    "programa_norm": "instalacion de sistemas electricos residenciales y comerciales",
+    "nivel": "Técnico",
+    "nivel_norm": "tecnico",
+    "perfil": "Instala, mantiene y verifica componentes eléctricos residenciales y comerciales; aplica eficiencia energética y domótica; elabora manuales y prototipos eléctricos; apoya proyectos empresariales en el sector eléctrico.",
+    "competencias": [
+      "Aplicar normas eléctricas y de seguridad en instalaciones",
+      "Ejecutar programas de eficiencia energética",
+      "Elaborar manuales y prototipos de instalaciones eléctricas",
+      "Instalar y mantener sistemas eléctricos residenciales y comerciales"
+    ],
+    "certificacion": "TÉCNICO EN INSTALACIÓN DE SISTEMAS ELÉCTRICOS RESIDENCIALES Y COMERCIALES",
+    "palabras_clave": [
+      "sistemas",
+      "instalacion",
+      "electricos"
+    ],
+    "ofertas": [
+      {
+        "municipio": "Popayán",
+        "municipio_norm": "popayan",
+        "municipio_base": "Popayan",
+        "municipio_base_norm": "popayan",
+        "sede_nombre": "Alto Cauca",
+        "sede_norm": "alto cauca",
+        "ambiente": "Electricidad 1",
+        "horario": "L a V 07:00–13:00",
+        "ordinal": 1
+      }
+    ]
+  },
+  {
+    "codigo": "832402",
+    "programa": "Instalacion Y Mantenimiento De Redes Internas De Telecomunicaciones",
+    "programa_norm": "instalacion y mantenimiento de redes internas de telecomunicaciones",
+    "nivel": "Técnico",
+    "nivel_norm": "tecnico",
+    "perfil": "Instala, mantiene y repara redes internas de telecomunicaciones; genera planes de negocio, informes de instalación y verificación; se proyecta en innovación tecnológica y autoformación.",
+    "competencias": [
+      "Aplicar normas técnicas nacionales e internacionales en telecomunicaciones",
+      "Elaborar informes de instalación, reparación y verificación",
+      "Instalar y mantener redes internas de telecomunicaciones",
+      "Interpretar planos y diagramas técnicos"
+    ],
+    "certificacion": "TÉCNICO EN INSTALACIÓN Y MANTENIMIENTO DE REDES INTERNAS DE TELECOMUNICACIONES",
+    "palabras_clave": [
+      "redes",
+      "telecomunicaciones",
+      "instalacion"
+    ],
+    "ofertas": [
+      {
+        "municipio": "Popayán",
+        "municipio_norm": "popayan",
+        "municipio_base": "Popayan",
+        "municipio_base_norm": "popayan",
+        "sede_nombre": "Alto Cauca",
+        "sede_norm": "alto cauca",
+        "ambiente": "Telecomunicaciones 1",
+        "horario": "L a V 18:00–22:00 / S 08:00–18:00",
+        "ordinal": 1
+      }
+    ]
+  },
+  {
+    "codigo": "838318",
+    "programa": "Mantenimiento De Motocicletas Y Motocarros",
+    "programa_norm": "mantenimiento de motocicletas y motocarros",
+    "nivel": "Técnico",
+    "nivel_norm": "tecnico",
+    "perfil": "Ejecución de mantenimiento preventivo y correctivo de motocicletas y motocarros; diagnóstico de sistemas; aplicación de normas de seguridad, higiene y ambiente; manejo de herramientas y elaboración de cotizaciones e informes.",
+    "competencias": [
+      "Aplicar normas de seguridad, higiene y ambiente",
+      "Corregir fallas y averías",
+      "Diagnosticar sistemas de motocicletas y motocarros",
+      "Ejecutar mantenimiento preventivo",
+      "Elaborar cotizaciones e informes técnicos"
+    ],
+    "certificacion": "TÉCNICO EN MANTENIMIENTO DE MOTOCICLETAS Y MOTOCARROS",
+    "palabras_clave": [
+      "mantenimiento",
+      "motocarros",
+      "motocicletas"
+    ],
+    "ofertas": [
+      {
+        "municipio": "Popayán",
+        "municipio_norm": "popayan",
+        "municipio_base": "Popayan",
+        "municipio_base_norm": "popayan",
+        "sede_nombre": "Alto Cauca",
+        "sede_norm": "alto cauca",
+        "ambiente": "Motocicletas",
+        "horario": "L a V 07:00–13:00",
+        "ordinal": 1
+      }
+    ]
+  },
+  {
+    "codigo": "832333",
+    "programa": "Mantenimiento E Instalacion De Sistemas Solares Fotovoltaicos",
+    "programa_norm": "mantenimiento e instalacion de sistemas solares fotovoltaicos",
+    "nivel": "Técnico",
+    "nivel_norm": "tecnico",
+    "perfil": "Instala y mantiene plantas solares fotovoltaicas; ejecuta cronogramas de mantenimiento; gestiona proyectos de energías renovables; promueve prevención y capacitación comunitaria en energías limpias.",
+    "competencias": [
+      "Elaborar cronogramas y reportes técnicos",
+      "Instalar y verificar componentes de plantas solares fotovoltaicas",
+      "Promover eficiencia energética y sostenibilidad",
+      "Realizar mantenimientos preventivos y correctivos"
+    ],
+    "certificacion": "TÉCNICO EN MANTENIMIENTO E INSTALACIÓN DE SISTEMAS SOLARES FOTOVOLTAICOS",
+    "palabras_clave": [
+      "sistemas",
+      "mantenimiento",
+      "instalacion"
+    ],
+    "ofertas": [
+      {
+        "municipio": "Popayán",
+        "municipio_norm": "popayan",
+        "municipio_base": "Popayan",
+        "municipio_base_norm": "popayan",
+        "sede_nombre": "Alto Cauca",
+        "sede_norm": "alto cauca",
+        "ambiente": "Electricidad 2",
+        "horario": "L a V 13:00–19:00",
+        "ordinal": 1
+      }
+    ]
+  },
+  {
+    "codigo": "838200",
+    "programa": "Mantenimiento Electrico Y Control Electronico De Automotores",
+    "programa_norm": "mantenimiento electrico y control electronico de automotores",
+    "nivel": "Técnico",
+    "nivel_norm": "tecnico",
+    "perfil": "Realiza mantenimiento preventivo y correctivo de sistemas eléctricos y electrónicos de automotores; diagnostica y repara módulos de control y redes multiplexadas; aplica normas de seguridad y ambientales.",
+    "competencias": [
+      "Aplicar normas de seguridad y ambientales en mantenimiento automotor",
+      "Diagnosticar y reparar módulos de control",
+      "Mantener sistemas eléctricos y electrónicos de vehículos",
+      "Realizar mantenimiento preventivo y correctivo"
+    ],
+    "certificacion": "TÉCNICO EN MANTENIMIENTO ELÉCTRICO Y CONTROL ELECTRÓNICO DE AUTOMOTORES",
+    "palabras_clave": [
+      "automotores",
+      "control",
+      "electrico",
+      "electronico",
+      "mantenimiento"
+    ],
+    "ofertas": [
+      {
+        "municipio": "Santander De Quilichao",
+        "municipio_norm": "santander de quilichao",
+        "municipio_base": "Santander De Quilichao",
+        "municipio_base_norm": "santander de quilichao",
+        "sede_nombre": "La Samaria",
+        "sede_norm": "la samaria",
+        "ambiente": "Taller Mecánica Automotriz",
+        "horario": "L a V 13:00–18:00 / S 07:00–13:00",
+        "ordinal": 1
+      }
+    ]
+  },
+  {
+    "codigo": "233104",
+    "programa": "Programacion De Software",
+    "programa_norm": "programacion de software",
+    "nivel": "Técnico",
+    "nivel_norm": "tecnico",
+    "perfil": "Codifica aplicaciones e interfaces de usuario con buenas prácticas; participa en equipos de desarrollo aportando a la construcción de soluciones informáticas.",
+    "competencias": [
+      "Elaborar manuales y realizar pruebas básicas de software",
+      "Implementar bases de datos y codificar aplicaciones",
+      "Interpretar requerimientos y diseñar interfaz de usuario"
+    ],
+    "certificacion": "TÉCNICO EN PROGRAMACIÓN DE SOFTWARE",
+    "palabras_clave": [
+      "programacion",
+      "software"
+    ],
+    "ofertas": [
+      {
+        "municipio": "Santander De Quilichao",
+        "municipio_norm": "santander de quilichao",
+        "municipio_base": "Santander De Quilichao",
+        "municipio_base_norm": "santander de quilichao",
+        "sede_nombre": "La Casona",
+        "sede_norm": "la casona",
+        "ambiente": "Ambiente 1 Tics",
+        "horario": "L a V 13:00–19:00",
+        "ordinal": 1
+      }
+    ]
+  },
+  {
+    "codigo": "233108",
+    "programa": "Sistemas Teleinformáticos",
+    "programa_norm": "sistemas teleinformaticos",
+    "nivel": "Técnico",
+    "nivel_norm": "tecnico",
+    "perfil": "Brinda soporte técnico en ofimática, mantenimiento preventivo de equipos de cómputo, redes de datos y atención en mesa de servicio TIC. Se desempeña en empresas públicas o privadas garantizando la operación, mantenimiento y conectividad de sistemas informáticos con calidad y buenas prácticas.",
+    "competencias": [
+      "Atender requerimientos en mesa de servicio TIC",
+      "Brindar soporte en redes de datos y conectividad",
+      "Gestionar información y respaldos de activos tecnológicos",
+      "Realizar mantenimiento preventivo y correctivo de equipos de cómputo"
+    ],
+    "certificacion": "TÉCNICO EN SISTEMAS TELEINFORMÁTICOS",
+    "palabras_clave": [
+      "sistemas",
+      "teleinformaticos"
+    ],
+    "ofertas": [
+      {
+        "municipio": "Mercaderes",
+        "municipio_norm": "mercaderes",
+        "municipio_base": "Mercaderes",
+        "municipio_base_norm": "mercaderes",
+        "sede_nombre": "Sala Sacudete Del Municipio",
+        "sede_norm": "sala sacudete del municipio",
+        "ambiente": null,
+        "horario": "L a V 07:00–13:00",
+        "ordinal": 1
+      },
+      {
+        "municipio": "Morales",
+        "municipio_norm": "morales",
+        "municipio_base": "Morales",
+        "municipio_base_norm": "morales",
+        "sede_nombre": "Casa De La Cultura",
+        "sede_norm": "casa de la cultura",
+        "ambiente": null,
+        "horario": "L a V 13:00–19:00",
+        "ordinal": 2
+      },
+      {
+        "municipio": "Santander De Quilichao",
+        "municipio_norm": "santander de quilichao",
+        "municipio_base": "Santander De Quilichao",
+        "municipio_base_norm": "santander de quilichao",
+        "sede_nombre": "La Casona",
+        "sede_norm": "la casona",
+        "ambiente": "Ambiente 2",
+        "horario": "L a V 13:00–19:00",
+        "ordinal": 3
+      }
+    ]
+  },
+  {
+    "codigo": "525214",
+    "programa": "Actividad Fisica",
+    "programa_norm": "actividad fisica",
+    "nivel": "Tecnólogo",
+    "nivel_norm": "tecnologo",
+    "perfil": "Planifica, estructura y dosifica programas de ejercicio físico en poblaciones aparentemente sanas. Se desempeña en gimnasios, cajas de compensación, instituciones educativas, entes deportivos y empresas.",
+    "competencias": [
+      "Dinamizar grupos y proyectos comunitarios en torno a la actividad física",
+      "Evaluar desarrollo y logros de programas de entrenamiento",
+      "Programar y ejecutar actividades de actividad física según criterios fisiológicos",
+      "Promover estilos de vida saludables mediante la actividad física"
+    ],
+    "certificacion": "TECNÓLOGO EN ACTIVIDAD FÍSICA",
+    "palabras_clave": [
+      "actividad",
+      "fisica"
+    ],
+    "ofertas": [
+      {
+        "municipio": "Popayán",
+        "municipio_norm": "popayan",
+        "municipio_base": "Popayan",
+        "municipio_base_norm": "popayan",
+        "sede_nombre": "Alto Cauca",
+        "sede_norm": "alto cauca",
+        "ambiente": "Deportes 1",
+        "horario": "L a V 18:00–22:00 / S 08:00–18:00",
+        "ordinal": 1
+      }
+    ]
+  },
+  {
+    "codigo": "228118",
+    "programa": "Analisis Y Desarrollo De Software",
+    "programa_norm": "analisis y desarrollo de software",
+    "nivel": "Tecnólogo",
+    "nivel_norm": "tecnologo",
+    "perfil": "Analiza, diseña, desarrolla, prueba y documenta soluciones de software; integra bases de datos y aplica metodologías y buenas prácticas de la industria para construir aplicaciones de calidad.",
+    "competencias": [
+      "Análisis y diseño de software",
+      "Construcción de bases de datos e implementación de aplicaciones",
+      "Levantamiento y especificación de requisitos",
+      "Pruebas, documentación y despliegue de soluciones"
+    ],
+    "certificacion": "TECNÓLOGO EN ANÁLISIS Y DESARROLLO DE SOFTWARE",
+    "palabras_clave": [
+      "desarrollo",
+      "software",
+      "analisis"
+    ],
+    "ofertas": [
+      {
+        "municipio": "Guapi",
+        "municipio_norm": "guapi",
+        "municipio_base": "Guapi",
+        "municipio_base_norm": "guapi",
+        "sede_nombre": "Sala De Sistemas",
+        "sede_norm": "sala de sistemas",
+        "ambiente": null,
+        "horario": "L a V 07:00–13:00",
+        "ordinal": 1
+      },
+      {
+        "municipio": "Popayán",
+        "municipio_norm": "popayan",
+        "municipio_base": "Popayan",
+        "municipio_base_norm": "popayan",
+        "sede_nombre": "Alto Cauca",
+        "sede_norm": "alto cauca",
+        "ambiente": "Software 1",
+        "horario": "L a V 13:00–19:00",
+        "ordinal": 2
+      },
+      {
+        "municipio": "Popayán",
+        "municipio_norm": "popayan",
+        "municipio_base": "Popayan",
+        "municipio_base_norm": "popayan",
+        "sede_nombre": "Alto Cauca",
+        "sede_norm": "alto cauca",
+        "ambiente": "Software 2",
+        "horario": "L a V 07:00–13:00",
+        "ordinal": 3
+      },
+      {
+        "municipio": "Popayán",
+        "municipio_norm": "popayan",
+        "municipio_base": "Popayan",
+        "municipio_base_norm": "popayan",
+        "sede_nombre": "Calle 5",
+        "sede_norm": "calle 5",
+        "ambiente": null,
+        "horario": "L a V 07:00–13:00",
+        "ordinal": 4
+      },
+      {
+        "municipio": "Popayán",
+        "municipio_norm": "popayan",
+        "municipio_base": "Popayan",
+        "municipio_base_norm": "popayan",
+        "sede_nombre": "Calle 5",
+        "sede_norm": "calle 5",
+        "ambiente": null,
+        "horario": "L a V 13:00–19:00",
+        "ordinal": 5
+      }
+    ]
+  },
+  {
+    "codigo": "224312",
+    "programa": "Automatizacion De Sistemas Mecatronicos",
+    "programa_norm": "automatizacion de sistemas mecatronicos",
+    "nivel": "Tecnólogo",
+    "nivel_norm": "tecnologo",
+    "perfil": "Opera, mantiene, desarrolla e integra sistemas mecatrónicos y equipos automatizados en manufactura; automatiza máquinas con lógica cableada y programada; integra robots, redes de PLC e interfaces gráficas; aplica normas de seguridad y participa en desarrollos tecnológicos.",
+    "competencias": [
+      "Diagnosticar y corregir fallas en sistemas eléctricos, electrónicos y mecánicos",
+      "Ensamblar tableros de control e instalaciones eléctricas asociadas",
+      "Integrar redes de PLC y visión artificial en procesos de manufactura",
+      "Montar y ajustar equipos y componentes en sistemas automatizados",
+      "Programar sistemas de automatización con adquisición de datos e interfaz gráfica",
+      "Programar y operar robots industriales"
+    ],
+    "certificacion": "TECNÓLOGO EN AUTOMATIZACIÓN DE SISTEMAS MECATRÓNICOS",
+    "palabras_clave": [
+      "sistemas",
+      "automatizacion",
+      "mecatronicos"
+    ],
+    "ofertas": [
+      {
+        "municipio": "Popayán",
+        "municipio_norm": "popayan",
+        "municipio_base": "Popayan",
+        "municipio_base_norm": "popayan",
+        "sede_nombre": "Alto Cauca",
+        "sede_norm": "alto cauca",
+        "ambiente": "Mecatrónica",
+        "horario": "L a V 07:00–13:00",
+        "ordinal": 1
+      }
+    ]
+  },
+  {
+    "codigo": "223107",
+    "programa": "Construccion De Infraestructura Vial",
+    "programa_norm": "construccion de infraestructura vial",
+    "nivel": "Tecnólogo",
+    "nivel_norm": "tecnologo",
+    "perfil": "Apoya las distintas fases de ejecución de proyectos de obras de infraestructura vial y urbanismo mediante inspección de procesos constructivos, con base en planos, especificaciones técnicas y normatividad vigente.",
+    "competencias": [
+      "Coordinar e inspeccionar actividades y procesos constructivos",
+      "Elaborar informes de seguimiento y control de materiales, mano de obra y equipos",
+      "Gestionar procedimientos para contingencias y emergencias",
+      "Presentar planes de trabajo y manejo de personal",
+      "Registrar insumos, requerimientos y mediciones de obra",
+      "Verificar resultados de ensayos y pruebas de control de calidad"
+    ],
+    "certificacion": "TECNÓLOGO EN CONSTRUCCIÓN DE INFRAESTRUCTURA VIAL",
+    "palabras_clave": [
+      "construccion",
+      "infraestructura",
+      "vial"
+    ],
+    "ofertas": [
+      {
+        "municipio": "Popayán",
+        "municipio_norm": "popayan",
+        "municipio_base": "Popayan",
+        "municipio_base_norm": "popayan",
+        "sede_nombre": "Alto Cauca",
+        "sede_norm": "alto cauca",
+        "ambiente": "Construccion - Aula 205",
+        "horario": "L a V 18:00–22:00 / S 08:00–18:00",
+        "ordinal": 1
+      }
+    ]
+  },
+  {
+    "codigo": "226701",
+    "programa": "Coordinacion En Sistemas Integrados De Gestion",
+    "programa_norm": "coordinacion en sistemas integrados de gestion",
+    "nivel": "Tecnólogo",
+    "nivel_norm": "tecnologo",
+    "perfil": "Apoya la estructuración, implementación, mantenimiento y mejora de sistemas de gestión (calidad, ambiental, SST) de forma individual o integrada, promoviendo el cumplimiento legal y la mejora continua.",
+    "competencias": [
+      "Documentar y caracterizar procesos y controles operacionales",
+      "Elaborar matrices de riesgos, requisitos legales y análisis de contexto",
+      "Medir desempeño e implementar acciones de mejora",
+      "Planear y ejecutar auditorías internas al SIG"
+    ],
+    "certificacion": "TECNÓLOGO EN COORDINACIÓN EN SISTEMAS INTEGRADOS DE GESTIÓN",
+    "palabras_clave": [
+      "sistemas",
+      "coordinacion",
+      "integrados"
+    ],
+    "ofertas": [
+      {
+        "municipio": "Santander De Quilichao",
+        "municipio_norm": "santander de quilichao",
+        "municipio_base": "Santander De Quilichao",
+        "municipio_base_norm": "santander de quilichao",
+        "sede_nombre": "La Samaria",
+        "sede_norm": "la samaria",
+        "ambiente": "Taller Logística Y Producción Industrial",
+        "horario": "L a V 07:00–13:00",
+        "ordinal": 1
+      }
+    ]
+  },
+  {
+    "codigo": "225219",
+    "programa": "Dibujo Y Modelado Arquitectonico Y De Ingenieria",
+    "programa_norm": "dibujo y modelado arquitectonico y de ingenieria",
+    "nivel": "Tecnólogo",
+    "nivel_norm": "tecnologo",
+    "perfil": "Representa proyectos de construcción mediante dibujo técnico y modelado 2D/3D; elabora planos digitales y maquetas; apoya a ingenieros, arquitectos y entidades en documentación gráfica.",
+    "competencias": [
+      "Aplicar metodologías y herramientas tecnológicas de visualización",
+      "Apoyar la documentación gráfica para consultoría y construcción",
+      "Elaborar planos digitales de arquitectura e ingeniería",
+      "Modelar en 3D y producir fotorealismo y recorridos virtuales",
+      "Realizar dibujos y bocetos técnicos para proyectos arquitectónicos y urbanos"
+    ],
+    "certificacion": "TECNÓLOGO EN DIBUJO Y MODELADO ARQUITECTÓNICO Y DE INGENIERÍA",
+    "palabras_clave": [
+      "arquitectonico",
+      "dibujo",
+      "ingenieria",
+      "modelado"
+    ],
+    "ofertas": [
+      {
+        "municipio": "Popayán",
+        "municipio_norm": "popayan",
+        "municipio_base": "Popayan",
+        "municipio_base_norm": "popayan",
+        "sede_nombre": "Alto Cauca",
+        "sede_norm": "alto cauca",
+        "ambiente": "Dibujo - Aula 203",
+        "horario": "L a V 13:00–19:00",
+        "ordinal": 1
+      }
+    ]
+  },
+  {
+    "codigo": "821222",
+    "programa": "Electricidad Industrial",
+    "programa_norm": "electricidad industrial",
+    "nivel": "Tecnólogo",
+    "nivel_norm": "tecnologo",
+    "perfil": "Planea, ejecuta y mantiene instalaciones eléctricas industriales; supervisa procesos de control y automatización; gestiona proyectos de distribución y uso final de energía; desarrolla innovación tecnológica en el ámbito eléctrico.",
+    "competencias": [
+      "Aplicar técnicas de control, supervisión y comunicaciones industriales",
+      "Gestionar proyectos de distribución y uso final de energía",
+      "Mantener y verificar equipos eléctricos de media y baja tensión",
+      "Planear, diseñar y ejecutar instalaciones eléctricas residenciales e industriales"
+    ],
+    "certificacion": "TECNÓLOGO EN ELECTRICIDAD INDUSTRIAL",
+    "palabras_clave": [
+      "electricidad",
+      "industrial"
+    ],
+    "ofertas": [
+      {
+        "municipio": "Popayán",
+        "municipio_norm": "popayan",
+        "municipio_base": "Popayan",
+        "municipio_base_norm": "popayan",
+        "sede_nombre": "Alto Cauca",
+        "sede_norm": "alto cauca",
+        "ambiente": "Electricidad 1",
+        "horario": "L a V 07:00–13:00",
+        "ordinal": 1
+      }
+    ]
+  },
+  {
+    "codigo": "821620",
+    "programa": "Gestion Del Mantenimiento De Automotores",
+    "programa_norm": "gestion del mantenimiento de automotores",
+    "nivel": "Tecnólogo",
+    "nivel_norm": "tecnologo",
+    "perfil": "Coordina, supervisa y asesora procesos de mantenimiento automotriz; organiza talleres y recursos; asesora clientes en servicio postventa; aplica calidad, seguridad y sostenibilidad en el mantenimiento de vehículos.",
+    "competencias": [
+      "Asesorar clientes y aplicar normas de calidad y seguridad",
+      "Coordinar talento humano en talleres automotrices",
+      "Diagnosticar fallas y planear mantenimientos",
+      "Gestionar inventarios, insumos y repuestos",
+      "Supervisar programas de mantenimiento mecánico"
+    ],
+    "certificacion": "TECNÓLOGO EN GESTIÓN DEL MANTENIMIENTO DE AUTOMOTORES",
+    "palabras_clave": [
+      "gestion",
+      "mantenimiento",
+      "automotores"
+    ],
+    "ofertas": [
+      {
+        "municipio": "Popayán",
+        "municipio_norm": "popayan",
+        "municipio_base": "Popayan",
+        "municipio_base_norm": "popayan",
+        "sede_nombre": "Alto Cauca",
+        "sede_norm": "alto cauca",
+        "ambiente": "Mecanica - Aula 1",
+        "horario": "L a V 13:00–19:00",
+        "ordinal": 1
+      }
+    ]
+  },
+  {
+    "codigo": "621201",
+    "programa": "Gestión Empresarial",
+    "programa_norm": "gestion empresarial",
+    "nivel": "Tecnólogo",
+    "nivel_norm": "tecnologo",
+    "perfil": "Proyecta y planea actividades de mercadeo, dirige talento humano, controla inventarios, interviene en programas de mejoramiento organizacional, organiza eventos, procesa información, facilita servicio al cliente y contabiliza operaciones.",
+    "competencias": [
+      "Comprender y producir textos en inglés (oral y escrito)",
+      "Contabilizar operaciones según normatividad vigente",
+      "Controlar inventarios con indicadores de rotación",
+      "Dirigir talento humano según necesidades de la organización",
+      "Formular proyectos y proponer alternativas de solución",
+      "Organizar eventos empresariales",
+      "Procesar información de acuerdo a las necesidades de la organización"
+    ],
+    "certificacion": "TECNÓLOGO EN GESTIÓN EMPRESARIAL",
+    "palabras_clave": [
+      "gestion",
+      "empresarial"
+    ],
+    "ofertas": [
+      {
+        "municipio": "Popayán",
+        "municipio_norm": "popayan",
+        "municipio_base": "Popayan",
+        "municipio_base_norm": "popayan",
+        "sede_nombre": "Alto Cauca",
+        "sede_norm": "alto cauca",
+        "ambiente": "Gestión Empresarial 1",
+        "horario": "L a V 13:00–19:00",
+        "ordinal": 1
+      }
+    ]
+  },
+  {
+    "codigo": "821203",
+    "programa": "Implementacion De Redes Y Servicios De Telecomunicaciones",
+    "programa_norm": "implementacion de redes y servicios de telecomunicaciones",
+    "nivel": "Tecnólogo",
+    "nivel_norm": "tecnologo",
+    "perfil": "Diseña, implementa, configura y mantiene sistemas de telecomunicaciones; supervisa proyectos de telecomunicaciones; interviene en telefonía, datos, televisión y sistemas de seguridad; participa en innovación tecnológica y aplica normas nacionales e internacionales.",
+    "competencias": [
+      "Configurar y administrar servicios de telecomunicaciones (voz, datos, TV, IP)",
+      "Diseñar, implementar y mantener sistemas de telecomunicaciones",
+      "Elaborar planos, informes técnicos y planes de mantenimiento",
+      "Realizar cableado estructurado y comunicaciones inalámbricas",
+      "Supervisar proyectos de telecomunicaciones con criterios de calidad"
+    ],
+    "certificacion": "TECNÓLOGO EN IMPLEMENTACIÓN DE REDES Y SERVICIOS DE TELECOMUNICACIONES",
+    "palabras_clave": [
+      "redes",
+      "telecomunicaciones",
+      "implementacion"
+    ],
+    "ofertas": [
+      {
+        "municipio": "Popayán",
+        "municipio_norm": "popayan",
+        "municipio_base": "Popayan",
+        "municipio_base_norm": "popayan",
+        "sede_nombre": "Alto Cauca",
+        "sede_norm": "alto cauca",
+        "ambiente": "Telecomunicaciones 1",
+        "horario": "L a V 07:00–13:00",
+        "ordinal": 1
+      }
+    ]
+  },
+  {
+    "codigo": "225311",
+    "programa": "Levantamientos Topograficos Y Georreferenciacion",
+    "programa_norm": "levantamientos topograficos y georreferenciacion",
+    "nivel": "Tecnólogo",
+    "nivel_norm": "tecnologo",
+    "perfil": "Ejecución de proyectos topográficos en terreno; captura y procesamiento de información geográfica; uso de tecnologías de medición, imágenes satelitales y georreferenciación para apoyar diseño y localización de obras.",
+    "competencias": [
+      "Aplicar TIC y metodologías de medición y representación",
+      "Efectuar levantamientos topográficos y georreferenciados",
+      "Generar productos topográficos: planos, modelados digitales y cálculos de volúmenes",
+      "Localizar, replantear y controlar elementos constructivos en obra"
+    ],
+    "certificacion": "TECNÓLOGO EN LEVANTAMIENTOS TOPOGRÁFICOS Y GEORREFERENCIACIÓN",
+    "palabras_clave": [
+      "georreferenciacion",
+      "levantamientos",
+      "topograficos"
+    ],
+    "ofertas": [
+      {
+        "municipio": "Popayán",
+        "municipio_norm": "popayan",
+        "municipio_base": "Popayan",
+        "municipio_base_norm": "popayan",
+        "sede_nombre": "Alto Cauca",
+        "sede_norm": "alto cauca",
+        "ambiente": "Topografia - Aula 201",
+        "horario": "L a V 18:00–22:00 / S 08:00–18:00",
+        "ordinal": 1
+      }
+    ]
+  },
+  {
+    "codigo": "222319",
+    "programa": "Prevencion Y Control Ambiental",
+    "programa_norm": "prevencion y control ambiental",
+    "nivel": "Tecnólogo",
+    "nivel_norm": "tecnologo",
+    "perfil": "Tecnólogo con visión integral de las problemáticas ambientales; coordina y supervisa programas de prevención, mitigación y control de contaminación (residuos, vertimientos, emisiones, olores y ruido); realiza muestreos y caracterización de parámetros ambientales; verifica requisitos legales y normativos; desarrolla acciones de sensibilización y promotoría ambiental.",
+    "competencias": [
+      "Caracterizar residuos y parámetros físicoquímicos y microbiológicos",
+      "Ejecutar acciones de promotoría ambiental y verificar planes de contingencia",
+      "Elaborar documentación y procedimientos de control operacional",
+      "Gestionar manejo integral de residuos y cumplimiento normativo",
+      "Operar y verificar sistemas de control de contaminación",
+      "Realizar muestreos e informes de resultados en agua, aire, suelo, lodos, residuos y ruido"
+    ],
+    "certificacion": "TECNÓLOGO EN PREVENCIÓN Y CONTROL AMBIENTAL",
+    "palabras_clave": [
+      "ambiental",
+      "control",
+      "prevencion"
+    ],
+    "ofertas": [
+      {
+        "municipio": "Popayán",
+        "municipio_norm": "popayan",
+        "municipio_base": "Popayan",
+        "municipio_base_norm": "popayan",
+        "sede_nombre": "Calle 5",
+        "sede_norm": "calle 5",
+        "ambiente": null,
+        "horario": "L a V 18:00–22:00 / S 08:00–18:00",
+        "ordinal": 1
+      }
+    ]
+  },
+  {
+    "codigo": "921200",
+    "programa": "Supervision En Sistemas De Agua Y Saneamiento",
+    "programa_norm": "supervision en sistemas de agua y saneamiento",
+    "nivel": "Tecnólogo",
+    "nivel_norm": "tecnologo",
+    "perfil": "Supervisa y verifica labores en el sector de agua potable y saneamiento básico: abastecimiento, tratamiento, muestreo, monitoreo ambiental, salud pública y gestión de residuos; elabora informes y reportes a sistemas de información.",
+    "competencias": [
+      "Apoyar vigilancia en salud pública y operación de redes",
+      "Inspeccionar y verificar condiciones sanitarias y ambientales",
+      "Monitorear y medir factores ambientales (agua, vertimientos, residuos)",
+      "Registrar y reportar información técnica (SUI, actas, cadenas de custodia)"
+    ],
+    "certificacion": "TECNÓLOGO EN SUPERVISIÓN EN SISTEMAS DE AGUA Y SANEAMIENTO",
+    "palabras_clave": [
+      "sistemas",
+      "supervision",
+      "agua"
+    ],
+    "ofertas": [
+      {
+        "municipio": "Popayán",
+        "municipio_norm": "popayan",
+        "municipio_base": "Popayan",
+        "municipio_base_norm": "popayan",
+        "sede_nombre": "Calle 5",
+        "sede_norm": "calle 5",
+        "ambiente": null,
+        "horario": "L a V 18:00–22:00 / S 08:00–18:00",
+        "ordinal": 1
+      },
+      {
+        "municipio": "Santander De Quilichao",
+        "municipio_norm": "santander de quilichao",
+        "municipio_base": "Santander De Quilichao",
+        "municipio_base_norm": "santander de quilichao",
+        "sede_nombre": "La Samaria",
+        "sede_norm": "la samaria",
+        "ambiente": "Laboratorio Ambiental",
+        "horario": "L a V 07:00–13:00",
+        "ordinal": 2
+      }
+    ]
+  }
+]
