@@ -24,6 +24,15 @@ PROGRAMAS_PATH_CANDIDATES = [
     "programas_enriquecido.json",
 ]
 
+# Estado simple para paginación
+STATE = {
+    "items": [],        # lista de (code, ordinal)
+    "intent": None,     # último intent
+    "page": 0,          # página actual (0-based)
+    "header": "",       # último encabezado
+}
+
+
 PROGRAMAS = []
 DATA_FORMAT = "unknown"  # "normalized_v2" | "normalized" | "raw"
 for pth in PROGRAMAS_PATH_CANDIDATES:
@@ -170,6 +179,54 @@ def _grams(s: str) -> set:
             else:
                 out.add(tok)
     return out
+
+# ==== TOPIC MATCH (v2) =======================================================
+
+def _topic_match_score_v2(prog: dict, tema_tokens: set[str], tema_phrase: str) -> int:
+    """
+    Calcula un puntaje de match temático SOLO usando el programa base (v2).
+    Evita falsos positivos premiando frase exacta y cobertura de tokens.
+    """
+    if not tema_tokens:
+        return 0
+
+    titulo = _norm(prog.get("programa") or prog.get("programa_norm") or "")
+    titulo_toks = set(_tokens(titulo))
+    kw = prog.get("palabras_clave") or []
+    kw_norm = " ".join(_norm(k or "") for k in kw)
+    kw_toks = set(_tokens(kw_norm))
+
+    score = 0
+
+    # 1) Frase exacta en el título
+    if tema_phrase and tema_phrase in titulo:
+        score += 100
+
+    # 2) Todos los tokens del tema están en el título
+    if tema_tokens and tema_tokens.issubset(titulo_toks):
+        score += 60
+
+    # 3) Cobertura por palabras_clave
+    if tema_tokens:
+        covered_kw = len(tema_tokens & kw_toks)
+        score += covered_kw * 10
+
+    return score
+
+
+def _topic_scores_v2(tema_tokens: set[str], tema_phrase: str) -> list[tuple[str,int]]:
+    """
+    Devuelve [(code, score)] ordenado por score descendente para DATA_FORMAT == 'normalized_v2'.
+    Aplica un umbral para filtrar ruido.
+    """
+    results = []
+    for code, prog in BY_CODE.items():
+        sc = _topic_match_score_v2(prog, tema_tokens, tema_phrase)
+        if sc >= 20:
+            results.append((code, sc))
+    results.sort(key=lambda x: (-x[1], BY_CODE[x[0]]["programa_norm"]))
+    return results
+
 
 # ========================= RUTA v2 (programas_normalizado_v2.json) =========================
 if DATA_FORMAT == "normalized_v2":
@@ -557,26 +614,23 @@ def _search_programs(intent: dict) -> list[tuple]:
                 for pair in BY_SEDE[k]:
                     candidates.add(pair)
 
-    # 4) tema (sobre/de). Usamos NG_TITLE → devuelve códigos (no ofertas).
+    # 4) tema (sobre/de)
     topic_codes = set()
-    grams = set()
-    for t in intent.get("tema_tokens") or []:
-        grams |= _grams(t)
-    for g in grams:
-        for c in NG_TITLE.get(g, []):
-            topic_codes.add(c)
-
-    # intersecta si ya había ubicación; si no, añade
-    if topic_codes:
-        if candidates:
-            # quedarnos con ofertas cuyo code esté en topic_codes
-            candidates = {pair for pair in candidates if pair[0] in topic_codes}
+    if intent.get("tema_tokens"):
+        tema_phrase = " ".join(sorted(intent["tema_tokens"]))  # también probamos frase unida
+        # v2: scoring por título + palabras_clave
+        if DATA_FORMAT == "normalized_v2":
+            ranked_codes = _topic_scores_v2(set(intent["tema_tokens"]), tema_phrase)
+            topic_codes = {code for code, _ in ranked_codes}
         else:
-            # sin ubicación: agregamos (code, ordinal 1) y luego expandimos
-            for code in topic_codes:
-                prog = BY_CODE.get(code)
-                if prog and prog.get("ofertas"):
-                    candidates.add((code, prog["ofertas"][0]["ordinal"]))
+            # legacy: mantenemos ngrams pero más estricto (intersección de grams)
+            grams_sets = []
+            for t in intent["tema_tokens"]:
+                grams_sets.append(_ngrams_for_text(t))
+            must = set.intersection(*grams_sets) if grams_sets else set()
+            for g in must:
+                for c in NG_TITLE.get(g, []):
+                    topic_codes.add(c)
 
     # 5) filtro por nivel (si viene)
     if intent.get("nivel"):
@@ -870,11 +924,7 @@ def top_codigos_para(texto: str, limit: int = 10) -> list[str]:
 
 def generar_respuesta(texto: str, show_all: bool = False, page: int = 0, page_size: int = 10) -> str:
     """
-    Motor principal de respuesta del bot.
-    - Saludos/ayuda
-    - código y código-ordinal
-    - búsquedas por ubicación (“en …”), por tema (“sobre …”) y por nivel
-    - listado paginado de 10 en 10 cuando show_all=True (usa 'page' y 'page_size')
+    Motor principal de respuesta del bot con paginación 'ver más'.
     """
     if not texto:
         return ("Escribe una consulta, por ejemplo:\n"
@@ -883,6 +933,16 @@ def generar_respuesta(texto: str, show_all: bool = False, page: int = 0, page_si
                 "• *233104* o *233104-2*")
 
     qn = _norm(texto)
+
+    # ---- "ver más" ----
+    if qn in {"ver mas", "ver más", "vermas"} and STATE.get("items"):
+        STATE["page"] += 1
+        body = _format_list(STATE["items"], page=STATE["page"], page_size=page_size)
+        # Si ya no hay más, retrocede para no quedar desfasados
+        if body.startswith("No encontré") or body.startswith("No hay más"):
+            STATE["page"] -= 1
+            return "No hay más resultados en esta lista."
+        return (STATE.get("header") or f"Resultados (pág. {STATE['page']+1}):\n") + body
 
     # ---- Saludos / Ayuda ----
     GREETINGS = {
@@ -907,6 +967,13 @@ def generar_respuesta(texto: str, show_all: bool = False, page: int = 0, page_si
     if intent.get("code") and intent.get("ordinal"):
         return ficha_por_codigo_y_ordinal(intent["code"], intent["ordinal"])
     if intent.get("code"):
+        # Reinicia estado (lista específica por código)
+        prog = BY_CODE.get(intent["code"]) if DATA_FORMAT == "normalized_v2" else None
+        if prog and prog.get("ofertas"):
+            items = [(intent["code"], of.get("ordinal", i+1)) for i, of in enumerate(prog.get("ofertas"))]
+            STATE.update({"items": items, "intent": intent, "page": 0,
+                          "header": f"Ubicaciones para *{prog['programa']}* (pág. 1):\n"})
+            return STATE["header"] + _format_list(STATE["items"], page=0, page_size=page_size)
         return ficha_por_codigo(intent["code"])
 
     # ---- Búsqueda general ----
@@ -921,31 +988,29 @@ def generar_respuesta(texto: str, show_all: bool = False, page: int = 0, page_si
             tips.insert(0, f"• *{intent['nivel']} en Popayán*")
         return "No encontré coincidencias. Prueba con:\n" + "\n".join(tips)
 
-    # ---- Encabezado informativo (opcional, antes del listado) ----
+    # ---- Encabezado informativo ----
     if intent.get("location", {}).get("municipio"):
         mun_txt = next(iter(intent["location"]["municipio"]))
-        header = f"Programas en *{mun_txt.title()}* (pág. {page+1}):\n"
+        header = f"Programas en *{mun_txt.title()}* (pág. 1):\n"
     elif intent.get("location", {}).get("sede"):
         sede_txt = next(iter(intent["location"]["sede"]))
-        header = f"Programas en *{sede_txt.title()}* (pág. {page+1}):\n"
+        header = f"Programas en *{sede_txt.title()}* (pág. 1):\n"
     elif intent.get("nivel") and intent.get("tema_tokens"):
         tema_txt = " ".join(sorted(intent["tema_tokens"]))
-        header = f"{intent['nivel'].title()} sobre *{tema_txt}* (pág. {page+1}):\n"
+        header = f"{intent['nivel'].title()} sobre *{tema_txt}* (pág. 1):\n"
     elif intent.get("tema_tokens"):
         tema_txt = " ".join(t for t in _tokens(qn) if t not in {"en","de","sobre"})
-        header = f"Resultados para el tema *{tema_txt}* (pág. {page+1}):\n"
+        header = f"Resultados para el tema *{tema_txt}* (pág. 1):\n"
     elif intent.get("nivel"):
-        header = f"Programas del nivel *{intent['nivel']}* (pág. {page+1}):\n"
+        header = f"Programas del nivel *{intent['nivel']}* (pág. 1):\n"
     else:
-        header = f"Resultados (pág. {page+1}):\n"
+        header = "Resultados (pág. 1):\n"
 
-    # ---- Listado 10×10 con ubicación visible ----
-    if show_all:
-        body = _format_list(results, page=page, page_size=page_size)
-    else:
-        body = _format_list(results, page=0, page_size=page_size)
+    # ---- Guarda estado para paginar después ----
+    STATE.update({"items": results, "intent": intent, "page": 0, "header": header})
 
-    # Evita duplicar encabezado si _format_list ya muestra “No encontré…”
+    # ---- Página 1 ----
+    body = _format_list(results, page=0, page_size=page_size)
     if body.startswith("No encontré"):
         return body
     return header + body
