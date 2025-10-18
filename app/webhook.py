@@ -1,49 +1,94 @@
-# app/webhook.py
 import os
 import json
 import logging
 import unicodedata
 import re
 from flask import Flask, request, jsonify
+import requests
 
-from app import send  # nuevo: centralizamos los envíos en send.py
-
+# Importa las funciones del core (v2/legacy compatibles)
 from app.core import (
-    generar_respuesta, top_codigos_para, ficha_por_codigo, TOPIC_RE,
-    PROGRAMAS, _norm, _tokens, _fields_for_topic, NIVEL_CANON, _expand_topic_tokens,
-    ficha_por_codigo_y_ordinal
+    generar_respuesta,
+    ficha_por_codigo,
+    ficha_por_codigo_y_ordinal,
+    _parse_intent,
+    _search_programs,
 )
 
+# ========================= LOGGING =========================
 logging.basicConfig(level=logging.INFO)
 log = logging.getLogger("webhook")
 
+# ========================= ENV VARS =========================
+WHATSAPP_TOKEN = os.getenv("WHATSAPP_TOKEN", "")
+WHATSAPP_PHONE_NUMBER_ID = os.getenv("WHATSAPP_PHONE_NUMBER_ID", "")
 WHATSAPP_VERIFY_TOKEN = os.getenv("WHATSAPP_VERIFY_TOKEN", "sena_token")
 
+GRAPH_URL = f"https://graph.facebook.com/v19.0/{WHATSAPP_PHONE_NUMBER_ID}/messages"
+
+# ========================= APP =========================
 app = Flask(__name__)
 
-# memoria simple por usuario para "más"
-STATE = {}  # {"5731...": {"last_query": "...", "last_code": "233104", "candidates": ["233104","233108",...]}}
+# ========================= ESTADO POR USUARIO =========================
+# Guardamos lo mínimo por chat para paginar y seleccionar por índice
+# STATE[user] = {
+#   "last_query": "texto normalizado",
+#   "page": 0,                          # página actual (0-based)
+#   "items": [ (code, ordinal), ... ],  # lista completa para la última búsqueda
+# }
+STATE = {}
 
+# ========================= HELPERS =========================
 def _norm_simple(s: str) -> str:
     if not s:
         return ""
     s = "".join(ch for ch in unicodedata.normalize("NFKD", s) if not unicodedata.combining(ch))
     return " ".join(s.lower().strip().split())
 
-def enviar_texto(to: str, body: str) -> bool:
-    ok, data = send.send_whatsapp_message(to, body)
-    if ok:
-        log.info(f"[webhook] enviado a {to[-4:]}**** id={data.get('message_id')}")
-        return True
-    log.error(f"[webhook] fallo envío a {to[-4:]}**** -> {data}")
-    return False
+def send_whatsapp_message(to: str, body: str):
+    if not WHATSAPP_TOKEN or not WHATSAPP_PHONE_NUMBER_ID:
+        log.error("❌ Faltan credenciales de WhatsApp.")
+        return
+    payload = {
+        "messaging_product": "whatsapp",
+        "to": to,
+        "type": "text",
+        "text": {"body": body[:4096]},
+    }
+    headers = {"Authorization": f"Bearer {WHATSAPP_TOKEN}", "Content-Type": "application/json"}
+    try:
+        r = requests.post(GRAPH_URL, headers=headers, json=payload, timeout=20)
+        if r.status_code >= 400:
+            log.error(f"Error enviando: {r.status_code} {r.text}")
+    except Exception as e:
+        log.exception(f"Error al llamar al Graph API: {e}")
 
-# ------------------ Health ------------------
+def _extract_text(msg: dict) -> str:
+    """Soporta 'text' y 'interactive' (botón/lista)."""
+    mtype = msg.get("type")
+    if mtype == "text":
+        return msg.get("text", {}).get("body", "")
+    if mtype == "interactive":
+        inter = msg.get("interactive", {})
+        # button_reply o list_reply devuelven title
+        br = inter.get("button_reply", {})
+        lr = inter.get("list_reply", {})
+        return br.get("title") or lr.get("title") or ""
+    return ""
+
+def _current_page_items(user_id: str, page_size: int = 10):
+    st = STATE.get(user_id, {})
+    items = st.get("items", [])
+    page = st.get("page", 0)
+    start = page * page_size
+    end = start + page_size
+    return items[start:end]
+
+# ========================= HEALTH & VERIFY =========================
 @app.get("/health")
 def health():
-    return jsonify({"status": "ok", "graph_api_ver": os.getenv("GRAPH_API_VER", "v20.0")})
+    return jsonify({"status": "ok"})
 
-# ------------- Meta verification -------------
 @app.get("/webhook")
 def verify():
     mode = request.args.get("hub.mode")
@@ -54,7 +99,7 @@ def verify():
         return challenge, 200
     return "forbidden", 403
 
-# --------------- Incoming msgs ---------------
+# ========================= INCOMING =========================
 @app.post("/webhook")
 def incoming():
     data = request.get_json(silent=True) or {}
@@ -70,137 +115,64 @@ def incoming():
 
         msg = msgs[0]
         from_number = msg.get("from")
-        mtype = msg.get("type")
-
-        # texto o interacción de lista/botón
-        if mtype == "text":
-            text = msg["text"]["body"]
-        elif mtype == "interactive":
-            inter = msg.get("interactive", {})
-            text = (inter.get("button_reply", {}) or inter.get("list_reply", {})).get("title", "")
-        else:
-            text = "(mensaje no-texto)"
-
+        text = _extract_text(msg) or ""
         text_norm = _norm_simple(text)
-        st = STATE.get(from_number, {})
+        st = STATE.get(from_number, {"last_query": "", "page": 0, "items": []})
 
-        # ----------------- Selección por "<codigo>-<n>" (variante enumerada) -----------------
-        m_code_idx = re.fullmatch(r"\s*(\d{5,7})-(\d{1,2})\s*", text_norm or "")
+        # ============= 1) Selección directa "codigo-ordinal" =================
+        m_code_idx = re.fullmatch(r"\s*(\d{5,7})-(\d{1,2})\s*", text_norm)
         if m_code_idx:
-            base, ord_str = m_code_idx.groups()
+            code, ord_str = m_code_idx.groups()
             ord_n = int(ord_str)
-            respuesta = ficha_por_codigo_y_ordinal(base, ord_n)
-            st["last_code"] = base  # recordamos el código base
-            STATE[from_number] = st
-            enviar_texto(from_number, respuesta)
+            respuesta = ficha_por_codigo_y_ordinal(code, ord_n)
+            # mantener contexto en caso de que el usuario siga con "ver más"
+            STATE[from_number] = {"last_query": f"{code}-{ord_n}", "page": 0, "items": []}
+            send_whatsapp_message(to=from_number, body=respuesta)
             return "ok", 200
-            
-        # ----------------- Selección numerada (1..10) tras lista/paginación -----------------
-        if re.fullmatch(r"(?:10|[1-9])", text_norm or "") and st.get("candidates"):
+
+        # ============= 2) "ver más": misma búsqueda, siguiente página ========
+        if text_norm in {"ver mas", "ver más", "vermas"}:
+            if not st["last_query"]:
+                send_whatsapp_message(
+                    to=from_number,
+                    body="No tengo una búsqueda previa. Escribe por ejemplo: *tecnólogos en Popayán* o *programas en La Casona*."
+                )
+                return "ok", 200
+
+            # Siguiente página
+            st["page"] += 1
+            # Volvemos a pedir la respuesta con show_all=True y la página nueva
+            respuesta = generar_respuesta(st["last_query"], show_all=True, page=st["page"], page_size=10)
+            STATE[from_number] = st
+            send_whatsapp_message(to=from_number, body=respuesta)
+            return "ok", 200
+
+        # ============= 3) Selección por índice (1..10) en la página actual ===
+        if re.fullmatch(r"[1-9]|10", text_norm) and st.get("items"):
             idx = int(text_norm) - 1
-
-
-            # Si existe candidates_ext, respeta código + ordinal
-            if st.get("candidates_ext") and 0 <= idx < len(st["candidates_ext"]):
-                base = st["candidates_ext"][idx]["code"]
-                ord_n = st["candidates_ext"][idx]["ord"]
-                respuesta = ficha_por_codigo_y_ordinal(base, ord_n)
-                st["last_code"] = base
-                STATE[from_number] = st
-                enviar_texto(from_number, respuesta)
+            page_items = _current_page_items(from_number, page_size=10)
+            if 0 <= idx < len(page_items):
+                code, ord_n = page_items[idx]
+                respuesta = ficha_por_codigo_y_ordinal(code, ord_n)
+                send_whatsapp_message(to=from_number, body=respuesta)
                 return "ok", 200
+            # si no válido, sigue al flujo normal
 
-            # Fallback (solo código)
-            codes = st["candidates"]
-            if 0 <= idx < len(codes):
-                code = codes[idx]
-                st["last_code"] = code
-                STATE[from_number] = st
-                respuesta = ficha_por_codigo(code)
-                enviar_texto(from_number, respuesta)
-                return "ok", 200
+        # ============= 4) Consulta normal ================================
+        # Guardamos los items para poder seleccionar por índice y paginar
+        intent = _parse_intent(text_norm)
+        items = _search_programs(intent)
+        st = {"last_query": text_norm, "page": 0, "items": items}
+        STATE[from_number] = st
 
-        # ----------------- Follow-up: "requisitos?" usando el último código -----------------
-        FOLLOW = {"requisitos","requisito","req","duracion","duración","tiempo","perfil","competencias","certificacion","certificación"}
-        if any(w in text_norm for w in FOLLOW) and re.search(r"\b\d{5,7}\b", text_norm) is None and st.get("last_code"):
-            text = f"{text_norm} {st['last_code']}"
-
-        # ----------------- Paginación: "más"/"ver más" (10 en 10) -----------------
-        if text_norm in {"mas", "más", "ver mas", "ver más", "mostrar mas", "mostrar más"}:
-            if not st or not st.get("last_query"):
-                respuesta = "No tengo una búsqueda previa. Escribe una consulta (ej.: 'popayan tecnico', 'alto cauca')."
-            else:
-                st["page"] = st.get("page", 0) + 1
-                STATE[from_number] = st
-                respuesta = generar_respuesta(st["last_query"], show_all=False, page=st["page"], page_size=10)
-
-
-        # ----------------- Nueva consulta normal -----------------
-        else:
-            respuesta = generar_respuesta(text, show_all=False)
-
-            # Guardar contexto mínimo
-            STATE[from_number] = {"last_query": text_norm, "page": 0}
-        
-            # --- Extraer candidatos en el mismo orden mostrado (hasta 5) ---
-            candidates_ext = []
-            lines = (respuesta or "").splitlines()
-            per_code_count = {}
-            for ln in lines:
-                m_item = re.match(r"\s*(\d+)\.\s+(.+)", ln)
-                if not m_item:
-                    continue
-                m_code = re.search(r"C[oó]digo\s*\[(\d{5,7})\]", ln, flags=re.I)
-                if not m_code:
-                    continue
-                code = m_code.group(1)
-                per_code_count[code] = per_code_count.get(code, 0) + 1
-                candidates_ext.append({"code": code, "ord": per_code_count[code]})
-                if len(candidates_ext) >= 10:
-                    break
-            if candidates_ext:
-                STATE[from_number]["candidates_ext"] = candidates_ext
-
-            # --- Si la consulta es "nivel + (sobre|en|de) + tema", guardamos candidates específicos ---
-            m_topic = TOPIC_RE.match(text_norm)
-            if m_topic:
-                nivel_raw, _, tema = m_topic.groups()
-                nivel = NIVEL_CANON.get(_norm(nivel_raw), None)
-                if nivel:
-                    topic_tokens = _expand_topic_tokens(_tokens(_norm(tema)))
-                    encontrados = []
-                    for p in PROGRAMAS:
-                        if nivel not in _norm(p.get("nivel","")):
-                            continue
-                        hay = _fields_for_topic(p)
-                        if any(tok in hay for tok in topic_tokens):
-                            cod = str(p.get("codigo") or p.get("codigo_ficha") or p.get("no") or "").strip()
-                            if cod:
-                                encontrados.append(cod)
-                    if encontrados:
-                        STATE[from_number]["candidates"] = encontrados[:5]
-                        STATE[from_number]["page"] = 0
-
-            # --- Si NO es "nivel + tema", usa el mecanismo genérico ---
-            if not re.search(r"\b\d{5,7}\b", text_norm):
-                try:
-                    if "candidates" not in STATE[from_number]:
-                        STATE[from_number]["candidates"] = top_codigos_para(text_norm, limit=10)
-                except Exception:
-                    pass
-
-            # Si el usuario envió un código puro, recordar como last_code
-            m_code = re.fullmatch(r"\s*(\d{5,7})\s*", text or "")
-            if m_code:
-                STATE[from_number]["last_code"] = m_code.group(1)
-
-        # ----------------- Envío de respuesta -----------------
-        enviar_texto(from_number, respuesta)
+        # Render principal (página 1)
+        respuesta = generar_respuesta(text, show_all=False, page=0, page_size=10)
+        send_whatsapp_message(to=from_number, body=respuesta)
+        return "ok", 200
 
     except Exception as e:
         log.exception(f"Error procesando webhook: {e}")
-
-    return "ok", 200
+        return "error", 500
 
 
 if __name__ == "__main__":
