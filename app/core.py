@@ -818,9 +818,9 @@ def _render_ficha_v2(prog: dict, of: dict | None, code: str) -> str:
         parts.append("\n*Certificación:*")
         parts.append(cert)
 
-    # Aviso de más ubicaciones
+    # Aviso de más ubicaciones (usa el prog que ya tenemos)
     if DATA_FORMAT == "normalized_v2":
-        total = len(prog.get("ofertas") or [])
+        total = _offer_count_v2(prog)
         if total > 1:
             parts.append(
                 f"\n💡 Este programa tiene *{total} ubicaciones*.\n"
@@ -840,6 +840,25 @@ def _get_offer_v2(code: str, ordinal: int):
         if of.get("ordinal") == ordinal:
             return prog, of
     return prog, None
+
+def _offer_count_v2(prog_or_code) -> int:
+    """
+    Devuelve el número de ofertas reales (ordinales únicos) para un programa (v2).
+    Acepta el dict del programa o un código.
+    """
+    if DATA_FORMAT != "normalized_v2":
+        return 0
+    prog = prog_or_code
+    if not isinstance(prog_or_code, dict):
+        prog = BY_CODE.get(str(prog_or_code).strip()) or {}
+    ofertas = prog.get("ofertas") or []
+    # contar ordinales únicos por seguridad
+    seen = set()
+    for of in ofertas:
+        o = of.get("ordinal")
+        if o:
+            seen.add(o)
+    return len(seen)
 
 
 def ficha_por_codigo_y_ordinal(code: str, ord_n: int) -> str:
@@ -882,7 +901,12 @@ def ficha_por_codigo(code: str) -> str:
         if len(ofertas) == 0:
             return "No encontré secciones para ese código."
         if len(ofertas) == 1:
-            return _render_ficha_v2(prog, ofertas[0], code)
+            # Render normal + el mismo aviso si detectamos más de una ubicación real (por si hay ofertas colapsadas)
+            txt = _render_ficha_v2(prog, ofertas[0], code)
+            total = _offer_count_v2(prog)
+            if total > 1 and "Este programa tiene" not in txt:
+                txt += f"\n\n💡 Este programa tiene *{total} ubicaciones*. Escribe *{code}* para ver todas."
+            return txt
 
         # Varias ubicaciones → listado con ordinal para elegir
         lines = [
