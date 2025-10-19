@@ -820,10 +820,12 @@ def _render_ficha_v2(prog: dict, of: dict | None, code: str) -> str:
 
     # Aviso de más ubicaciones
     if DATA_FORMAT == "normalized_v2":
-        all_offers = (BY_CODE.get(code, {}) or {}).get("ofertas", [])
-        if len(all_offers) > 1:
-            parts.append(f"\n💡 Este programa tiene *{len(all_offers)} ubicaciones*.\n"
-                         f"Escribe *{code}* para ver todas.")
+        total = len(prog.get("ofertas") or [])
+        if total > 1:
+            parts.append(
+                f"\n💡 Este programa tiene *{total} ubicaciones*.\n"
+                f"Escribe *{code}* para ver todas."
+            )
     
     parts.append("\nℹ️ Puedes escribir:  requisitos {code} · perfil {code} · competencias {code} · certificacion {code}".format(code=code))
     return "\n".join(parts)
