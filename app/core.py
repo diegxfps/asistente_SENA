@@ -818,6 +818,13 @@ def _render_ficha_v2(prog: dict, of: dict | None, code: str) -> str:
         parts.append("\n*Certificación:*")
         parts.append(cert)
 
+    # Aviso de más ubicaciones
+    if DATA_FORMAT == "normalized_v2":
+        all_offers = (BY_CODE.get(code, {}) or {}).get("ofertas", [])
+        if len(all_offers) > 1:
+            parts.append(f"\n💡 Este programa tiene *{len(all_offers)} ubicaciones*.\n"
+                         f"Escribe *{code}* para ver todas.")
+    
     parts.append("\nℹ️ Puedes escribir:  requisitos {code} · perfil {code} · competencias {code} · certificacion {code}".format(code=code))
     return "\n".join(parts)
 
@@ -922,8 +929,8 @@ def _format_list(items: list[tuple], page: int = 0, page_size: int = 10) -> str:
             if prog and of:
                 lines.append(
                     f"{i}. {prog['programa']} ({prog.get('nivel','')}) — Código [{code}]"
-                    f"\n    📍 {of.get('municipio','')} — {of.get('sede_nombre','')}"
-                    + (f"  •  🕒 {of.get('horario','')}" if of.get('horario') else "")
+                    f"\n  • 📍 {of.get('municipio','')} — {of.get('sede_nombre','')}"
+                    + (f"\n  • 🕒 {of.get('horario','')}" if of.get('horario') else "")
                 )
             elif prog:
                 lines.append(f"{i}. {prog['programa']} — Código [{code}]")
@@ -937,8 +944,8 @@ def _format_list(items: list[tuple], page: int = 0, page_size: int = 10) -> str:
                 titulo = p.get("programa") or p.get("nombre") or "Programa"
                 lines.append(
                     f"{i}. {titulo} ({p.get('nivel','')}) — Código [{code}]"
-                    + (f"\n    📍 {str(mun).strip()} · {str(sede).strip()}" if (mun or sede) else "")
-                    + (f"  •  🕒 {hor}" if hor else "")
+                    + (f"\n  • 📍 {str(mun).strip()} · {str(sede).strip()}" if (mun or sede) else "")
+                    + (f"\n  •  🕒 {hor}" if hor else "")
                 )
             else:
                 lines.append(f"{i}. Código [{code}]")
@@ -974,6 +981,159 @@ def _find_by_code(code: str):
         return None
     lst = BY_CODE.get(str(code).strip(), [])
     return lst[0] if lst else None
+
+def _render_prog_fields(prog, fields):
+    """Utilidad para armar bloques de requisitos/perfil/competencias/certificacion."""
+    parts = []
+    if "requisitos" in fields:
+        parts.append("\n*Requisitos:*")
+        parts.append(prog.get("requisitos") or "No disponible.")
+    if "perfil" in fields:
+        parts.append("\n*Perfil del egresado:*")
+        parts.append(prog.get("perfil") or "No disponible.")
+    if "competencias" in fields:
+        parts.append("\n*Competencias:*")
+        comps = prog.get("competencias") or []
+        if comps:
+            for c in comps[:6]:
+                if c:
+                    parts.append(f"• {c}")
+            if len(comps) > 6:
+                parts.append(f"   (+{len(comps)-6} más)")
+        else:
+            parts.append("No disponible.")
+    if "certificacion" in fields or "certificación" in fields:
+        parts.append("\n*Certificación:*")
+        parts.append(prog.get("certificacion") or "No disponible.")
+    return parts
+
+
+def _handle_follow_query(texto: str) -> str or None:
+    """
+    Maneja consultas del tipo:
+      - requisitos|perfil|competencias|certificacion|horario (+ código/ordinal opcional)
+      - también combina con nivel/ubicación (p.ej. 'horario tecnólogo en popayán')
+    Retorna un string de respuesta o None si no aplica FOLLOW.
+    """
+    qn = _norm(texto)
+    FOLLOW = {"requisitos","requisito","req","duracion","duración","tiempo",
+              "perfil","competencias","certificacion","certificación","horario","jornada"}
+    if not any(w in qn for w in FOLLOW):
+        return None
+
+    # Qué campos pide
+    asked = set()
+    for w in FOLLOW:
+        if w in qn:
+            asked.add("horario" if w in {"horario","jornada"} else w)
+
+    intent = _parse_intent(texto)
+
+    # 1) Si viene código-ordinal: responde específico a esa oferta
+    if intent.get("code") and intent.get("ordinal") and DATA_FORMAT == "normalized_v2":
+        code, ord_n = intent["code"], intent["ordinal"]
+        prog = BY_CODE.get(code)
+        if not prog:
+            return "No encontré información para ese código."
+        oferta = None
+        for of in (prog.get("ofertas") or []):
+            if of.get("ordinal") == ord_n:
+                oferta = of; break
+
+        if not oferta:
+            return "No encontré esa variante (revisa el *código-ordinal*)."
+
+        parts = [f"📘 *{prog['programa']}* — Código [{code}-{ord_n}]",
+                 f"📍 {oferta.get('municipio','')} — {oferta.get('sede_nombre','')}"]
+        if "horario" in asked:
+            parts.append("\n*Horario:*")
+            parts.append(oferta.get("horario") or "No registrado.")
+        # Campos de programa (generales)
+        parts += _render_prog_fields(prog, asked - {"horario"})
+        # Sugerencia
+        all_offers = prog.get("ofertas") or []
+        if len(all_offers) > 1:
+            parts.append(f"\n💡 Este programa tiene *{len(all_offers)} ubicaciones*. Escribe *{code}* para ver todas.")
+        return "\n".join([p for p in parts if p])
+
+    # 2) Si viene código SIN ordinal
+    if intent.get("code") and DATA_FORMAT == "normalized_v2":
+        code = intent["code"]
+        prog = BY_CODE.get(code)
+        if not prog:
+            return "No encontré información para ese código."
+
+        ofertas = prog.get("ofertas") or []
+        parts = [f"📘 *{prog['programa']}* — Código [{code}]"]
+
+        # Horarios: listar por ubicación si hay varias ofertas
+        if "horario" in asked:
+            parts.append("\n*Horarios por ubicación:*")
+            if ofertas:
+                for of in ofertas[:10]:
+                    muni = of.get("municipio",""); sede = of.get("sede_nombre","")
+                    hor = of.get("horario") or "No registrado"
+                    ord_n = of.get("ordinal")
+                    parts.append(f"• {muni} — {sede}: {hor}   (elige con *{code}-{ord_n}*)")
+                if len(ofertas) > 10:
+                    parts.append("   (+ más ubicaciones; escribe el código para verlas todas)")
+            else:
+                parts.append("No hay horarios registrados.")
+        # Campos generales del programa
+        parts += _render_prog_fields(prog, asked - {"horario"})
+
+        # Sugerencia de ubicaciones
+        if len(ofertas) > 1:
+            parts.append(f"\n💡 Este programa tiene *{len(ofertas)} ubicaciones*. Escribe *{code}* para listarlas.")
+        return "\n".join([p for p in parts if p])
+
+    # 3) Sin código: combinar con nivel/ubicación si la consulta los trae
+    #    - horario: listamos horarios de los primeros matches (10)
+    #    - demás campos: mostramos campos generales por programa (1 por código)
+    items = _search_programs(intent)
+    if not items:
+        return "No encontré coincidencias para esa consulta."
+
+    # Recorta a 10 ítems visibles
+    items = items[:10]
+
+    # Si pide HORARIO → mejor mostrar por oferta (code-ordinal) con ubicación
+    if "horario" in asked and DATA_FORMAT == "normalized_v2":
+        lines = ["*Horarios encontrados:*"]
+        seen = set()
+        for code, ord_n in items:
+            prog = BY_CODE.get(code); oferta = None
+            if not prog: continue
+            for of in prog.get("ofertas") or []:
+                if of.get("ordinal") == ord_n:
+                    oferta = of; break
+            if not oferta: continue
+            key = (code, ord_n)
+            if key in seen: continue
+            seen.add(key)
+            muni = oferta.get("municipio",""); sede = oferta.get("sede_nombre","")
+            hor = oferta.get("horario") or "No registrado"
+            lines.append(f"• {prog['programa']} — [{code}-{ord_n}]\n   📍 {muni} — {sede}\n   🕒 {hor}")
+        return "\n".join(lines)
+
+    # Para requisitos/perfil/competencias/certificacion: 1 bloque por programa (no por oferta)
+    if DATA_FORMAT == "normalized_v2":
+        lines = []
+        seen_codes = set()
+        for code, ord_n in items:
+            if code in seen_codes: continue
+            seen_codes.add(code)
+            prog = BY_CODE.get(code)
+            if not prog: continue
+            lines.append(f"📘 *{prog['programa']}* — Código [{code}]")
+            lines += _render_prog_fields(prog, asked)
+            lines.append(f"💡 Escribe *{code}* para ver ubicaciones y horarios.")
+            lines.append("")  # espaciado
+        return "\n".join([ln for ln in lines if ln.strip()])
+
+    # Legacy fallback: si no es v2, solo devolvemos un tip
+    return "Para ver requisitos/horarios exactos, envía el *código* del programa (ej. 233104 o 233104-2)."
+
 
 # ========================= BÚSQUEDA RÁPIDA Y RESPUESTA =========================
 
@@ -1017,6 +1177,19 @@ def generar_respuesta(texto: str, show_all: bool = False, page: int = 0, page_si
 
     qn = _norm(texto)
 
+    # --- Detección contextual de saludo en frases largas ---
+    if any(qn.startswith(g) or qn.startswith(f"buen {g}") for g in ["hola", "buenos", "buenas", "saludos", "hey", "holi", "ola", "muy"]):
+        return (
+            "👋 ¡Hola! Bienvenido/a al *Asistente del SENA Regional Cauca*.\n\n"
+            "Puedes pedirme información así:\n"
+            "• *técnico en sistemas Popayán*\n"
+            "• *tecnólogos sobre software*\n"
+            "• *programas en La Casona*\n"
+            "• o un código directo como *233104-2*.\n\n"
+            "¿Sobre qué programa o lugar te gustaría saber?"
+        )
+
+    
     # --- Paginación: 'ver más' ---
     if qn in {"ver mas", "ver más", "vermas"} and STATE.get("items"):
         STATE["page"] += 1
@@ -1042,6 +1215,12 @@ def generar_respuesta(texto: str, show_all: bool = False, page: int = 0, page_si
             "💡 Escribe *ver más* para ver la siguiente página de resultados."
         )
 
+    # --- Consultas puntuales (requisitos, perfil, horario, competencias, etc.) ---
+    follow = _handle_follow_query(texto)
+    if follow:
+        return follow
+
+
     # --- Parseo de intención ---
     intent = _parse_intent(texto)
 
@@ -1066,9 +1245,10 @@ def generar_respuesta(texto: str, show_all: bool = False, page: int = 0, page_si
     results = _search_programs(intent)
     if not results:
         tips = [
-            "• *tecnólogos sobre sistemas*",
-            "• *programas en La Casona*",
-            "• *233104-2*",
+            "• *tecnólogos sobre software*",
+            "• *programas sobre sistemas*",
+            "• *programas en Sede Alto Cauca*",
+            "• *[codigo] para saber donde se impartirá*",
         ]
         if intent.get("nivel"):
             tips.insert(0, f"• *{intent['nivel']} en Popayán*")
