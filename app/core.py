@@ -815,14 +815,21 @@ def _render_ficha_v2(prog: dict, of: dict | None, code: str) -> str:
         parts.append("\n*Certificación:*")
         parts.append(cert)
 
-    # >>> HINT DE MULTI/ÚNICA UBICACIÓN <<<
-    total = len(prog.get("ofertas") or [])
-    if total > 1:
-        parts.append(f"\n💡 Este programa tiene *{total} ubicaciones*. Escribe *{code}* para ver todas.")
+    # 💡 Hints sobre ubicaciones (siempre mostramos algo)
+    offers = prog.get("ofertas") or []
+    offer_count = len(offers)
+    if offer_count > 1:
+        parts.append(
+            f"\n💡 Este programa tiene *{offer_count} ubicaciones*."
+            f"\n   Escribe *{code}* para ver todas."
+        )
     else:
         parts.append("\n🔸 Única ubicación disponible.")
 
-    parts.append("\nℹ️ Puedes escribir:  requisitos {code} · perfil {code} · competencias {code} · certificacion {code}".format(code=code))
+    parts.append(
+        "\nℹ️ Puedes escribir:  requisitos {code} · perfil {code} · competencias {code} · certificacion {code}"
+        .format(code=code)
+    )
     return "\n".join(parts)
 
 def _get_offer_v2(code: str, ordinal: int):
@@ -939,7 +946,6 @@ def _format_list(items: list[tuple], page: int = 0, page_size: int = 10) -> str:
     lines = []
     for i, (code, ord_n) in enumerate(chunk, start=1):
         if DATA_FORMAT == "normalized_v2":
-            # --- v2: programa base + oferta concreta ---
             prog = BY_CODE.get(code)
             of = None
             if prog:
@@ -948,52 +954,44 @@ def _format_list(items: list[tuple], page: int = 0, page_size: int = 10) -> str:
                         of = o
                         break
 
+            # datos comunes
+            offer_count = len((prog or {}).get("ofertas") or [])
+            if offer_count > 1:
+                hint = f"\n    💡 +{offer_count-1} ubic. más — escribe *{code}* para ver todas."
+            else:
+                hint = "\n    🔸 Única ubicación disponible."
+
             if prog and of:
-                # ubicación + horario
-                base = (
+                muni = of.get('municipio','')
+                sede = of.get('sede_nombre','')
+                hor  = of.get('horario','')
+                lines.append(
                     f"{i}. {prog['programa']} ({prog.get('nivel','')}) — Código [{code}]"
-                    f"\n    📍 {of.get('municipio','')} — {of.get('sede_nombre','')}"
+                    f"\n    📍 {muni} — {sede}"
+                    + (f"\n    🕒 {hor}" if hor else "")
+                    + hint
                 )
-                if of.get('horario'):
-                    base += f"  •  🕒 {of['horario']}"
-
-                # hint: si hay más ubicaciones
-                total_ofertas = len(prog.get("ofertas") or [])
-                if total_ofertas > 1:
-                    restantes = total_ofertas - 1
-                    base += f"\n    💡 +{restantes} ubic. más — escribe *{code}* para ver todas."
-
-                lines.append(base)
-
             elif prog:
-                # sin oferta localizada (defensivo)
-                total_ofertas = len(prog.get("ofertas") or [])
-                hint = (
-                    f"\n    💡 +{total_ofertas-1} ubic. más — escribe *{code}* para ver todas."
-                    if total_ofertas > 1 else ""
-                )
-                lines.append(f"{i}. {prog['programa']} — Código [{code}]{hint}")
+                # Si por alguna razón no hallamos la oferta exacta, igual mostramos el hint
+                lines.append(f"{i}. {prog['programa']} — Código [{code}]" + hint)
             else:
                 lines.append(f"{i}. Código [{code}]")
-
         else:
-            # --- Legacy: sin ofertas estructuradas ---
+            # Legacy: sin ofertas estructuradas
             p = _nth_by_code(code, ord_n) or _find_by_code(code)
             if p:
                 mun, sede, hor = _loc_fields(p)
                 titulo = p.get("programa") or p.get("nombre") or "Programa"
-                line = (
+                lines.append(
                     f"{i}. {titulo} ({p.get('nivel','')}) — Código [{code}]"
                     + (f"\n    📍 {str(mun).strip()} · {str(sede).strip()}" if (mun or sede) else "")
-                    + (f"  •  🕒 {hor}" if hor else "")
+                    + (f"\n    🕒 {hor}" if hor else "")
                 )
-                lines.append(line)
             else:
                 lines.append(f"{i}. Código [{code}]")
 
     if len(items) > start + page_size:
         lines.append("\nEscribe *ver más* para ver más resultados.")
-
     return "\n".join(lines)
     
 # ========================= API LEGADA: TOP CODIGOS =========================
