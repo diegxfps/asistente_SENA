@@ -777,13 +777,11 @@ def _render_ficha_legacy(p, code: str) -> str:
     )
     return "\n".join(parts)
 
-
 def _render_ficha_v2(prog: dict, of: dict | None, code: str) -> str:
     """Render para formato normalized_v2 (programa base + oferta específica)."""
     titulo = prog.get("programa") or "Programa"
     nivel = prog.get("nivel") or ""
-    parts = [f"📘 *{titulo}*",
-             f"{nivel} · Código [{code}]"]
+    parts = [f"📘 *{titulo}*", f"{nivel} · Código [{code}]"]
 
     if of:
         # Mostrar ubicación concreta (oferta elegida)
@@ -806,7 +804,6 @@ def _render_ficha_v2(prog: dict, of: dict | None, code: str) -> str:
 
     if comp:
         parts.append("\n*Competencias:*")
-        # Asegura lista y recorta a 6 bullets para WhatsApp
         comp_list = comp if isinstance(comp, list) else [str(comp)]
         for c in comp_list[:6]:
             if c:
@@ -818,18 +815,15 @@ def _render_ficha_v2(prog: dict, of: dict | None, code: str) -> str:
         parts.append("\n*Certificación:*")
         parts.append(cert)
 
-    # Aviso de más ubicaciones (usa el prog que ya tenemos)
-    if DATA_FORMAT == "normalized_v2":
-        total = _offer_count_v2(prog)
-        if total > 1:
-            parts.append(
-                f"\n💡 Este programa tiene *{total} ubicaciones*.\n"
-                f"Escribe *{code}* para ver todas."
-            )
-    
+    # >>> HINT DE MULTI/ÚNICA UBICACIÓN <<<
+    total = len(prog.get("ofertas") or [])
+    if total > 1:
+        parts.append(f"\n💡 Este programa tiene *{total} ubicaciones*. Escribe *{code}* para ver todas.")
+    else:
+        parts.append("\n🔸 Única ubicación disponible.")
+
     parts.append("\nℹ️ Puedes escribir:  requisitos {code} · perfil {code} · competencias {code} · certificacion {code}".format(code=code))
     return "\n".join(parts)
-
 
 def _get_offer_v2(code: str, ordinal: int):
     """Devuelve (programa, oferta) para normalized_v2, o (None, None) si no existe."""
@@ -930,6 +924,7 @@ def ficha_por_codigo(code: str) -> str:
     return _render_ficha_legacy(p, code)
 
 # ========================= LISTADOS =========================
+
 def _format_list(items: list[tuple], page: int = 0, page_size: int = 10) -> str:
     """
     items: lista de (code, ordinal) ya ordenada.
@@ -943,8 +938,8 @@ def _format_list(items: list[tuple], page: int = 0, page_size: int = 10) -> str:
 
     lines = []
     for i, (code, ord_n) in enumerate(chunk, start=1):
-        # Usa la oferta específica si estamos en v2
         if DATA_FORMAT == "normalized_v2":
+            # --- v2: programa base + oferta concreta ---
             prog = BY_CODE.get(code)
             of = None
             if prog:
@@ -952,37 +947,55 @@ def _format_list(items: list[tuple], page: int = 0, page_size: int = 10) -> str:
                     if o.get("ordinal") == ord_n:
                         of = o
                         break
+
             if prog and of:
-                lines.append(
+                # ubicación + horario
+                base = (
                     f"{i}. {prog['programa']} ({prog.get('nivel','')}) — Código [{code}]"
-                    f"\n  • 📍 {of.get('municipio','')} — {of.get('sede_nombre','')}"
-                    + (f"\n  • 🕒 {of.get('horario','')}" if of.get('horario') else "")
+                    f"\n    📍 {of.get('municipio','')} — {of.get('sede_nombre','')}"
                 )
+                if of.get('horario'):
+                    base += f"  •  🕒 {of['horario']}"
+
+                # hint: si hay más ubicaciones
+                total_ofertas = len(prog.get("ofertas") or [])
+                if total_ofertas > 1:
+                    restantes = total_ofertas - 1
+                    base += f"\n    💡 +{restantes} ubic. más — escribe *{code}* para ver todas."
+
+                lines.append(base)
+
             elif prog:
-                lines.append(f"{i}. {prog['programa']} — Código [{code}]")
+                # sin oferta localizada (defensivo)
+                total_ofertas = len(prog.get("ofertas") or [])
+                hint = (
+                    f"\n    💡 +{total_ofertas-1} ubic. más — escribe *{code}* para ver todas."
+                    if total_ofertas > 1 else ""
+                )
+                lines.append(f"{i}. {prog['programa']} — Código [{code}]{hint}")
             else:
                 lines.append(f"{i}. Código [{code}]")
+
         else:
-            # Legacy: sin ofertas estructuradas
+            # --- Legacy: sin ofertas estructuradas ---
             p = _nth_by_code(code, ord_n) or _find_by_code(code)
             if p:
                 mun, sede, hor = _loc_fields(p)
                 titulo = p.get("programa") or p.get("nombre") or "Programa"
-                lines.append(
+                line = (
                     f"{i}. {titulo} ({p.get('nivel','')}) — Código [{code}]"
-                    + (f"\n  • 📍 {str(mun).strip()} · {str(sede).strip()}" if (mun or sede) else "")
-                    + (f"\n  •  🕒 {hor}" if hor else "")
+                    + (f"\n    📍 {str(mun).strip()} · {str(sede).strip()}" if (mun or sede) else "")
+                    + (f"  •  🕒 {hor}" if hor else "")
                 )
+                lines.append(line)
             else:
                 lines.append(f"{i}. Código [{code}]")
 
-    more = ""
     if len(items) > start + page_size:
-        more = "\n\nEscribe *'ver más'* para ver más resultados."
+        lines.append("\nEscribe *ver más* para ver más resultados.")
 
-    return "\n".join(lines) + more
-
-
+    return "\n".join(lines)
+    
 # ========================= API LEGADA: TOP CODIGOS =========================
 
 def _nth_by_code(code: str, n: int):
