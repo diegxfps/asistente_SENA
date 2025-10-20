@@ -76,6 +76,20 @@ NIVEL_CANON = {
     "operario":"operario","operarios":"operario",
 }
 
+# --- Alias de sedes (solo v2) ---
+SEDE_ALIASES_V2 = {
+    "sede alto cauca": {"alto cauca", "ctpi norte", "sede norte", "ctpi norte sena"},
+    "sena sede calle 5 con cra 14 esquina barrio valencia": {"calle 5", "barrio valencia", "ctpi barrio valencia"},
+    "sede la samaria": {"la samaria", "samaria"},
+    "sede la casona": {"la casona", "casona"},
+}
+# reverse lookup: variante -> canon (lo usa el parser)
+SEDE_ALIAS_TO_CANON = {}
+for canon, variants in SEDE_ALIASES_V2.items():
+    for v in variants:
+        SEDE_ALIAS_TO_CANON[_norm(v)] = _norm(canon)
+
+
 # Expandir tokens de tema (sinónimos básicos; puedes añadir más)
 _TOPIC_SYNONYMS = {
     # Negocios/finanzas
@@ -262,59 +276,60 @@ def _topic_scores_v2(tema_tokens: set[str], tema_phrase: str) -> list[tuple[str,
     results.sort(key=lambda x: (-x[1], BY_CODE[x[0]]["programa_norm"]))
     return results
 
+TITLE_TOKENS = defaultdict(set)   # token -> {code,...}
+TITLE_PHRASES = defaultdict(set)  # frase (programa_norm/keyword completo) -> {code,...}
 
 # ========================= RUTA v2 (programas_normalizado_v2.json) =========================
+# ========================= RUTA v2 (programas_normalizado_v2.json) =========================
 if DATA_FORMAT == "normalized_v2":
-    # Construcción de índices específicos para v2
-    BY_CODE.clear(); BY_MUNICIPIO.clear(); BY_SEDE.clear(); NG_TITLE.clear()
+    # Limpia / reinicia índices v2
+    BY_CODE.clear()
+    BY_MUNICIPIO.clear()
+    BY_SEDE.clear()
+    NG_TITLE.clear()
 
+    # Indexación principal
     for prog in PROGRAMAS:
         code = str(prog.get("codigo") or "").strip()
         if not code:
             continue
-        BY_CODE[code] = prog  # guardamos el objeto programa completo
 
-        # Index por ubicación (por cada oferta del programa)
-        for of in prog.get("ofertas", []):
-            # municipio: indexa tanto el municipio completo como el "base"
+        # 1) Código -> programa base
+        BY_CODE[code] = prog
+
+        # 2) Ubicaciones (se indexa por cada oferta)
+        ofertas = prog.get("ofertas") or []
+        for of in ofertas:
+            ord_n = of.get("ordinal", 1)
+
+            # Municipio: usar tanto el municipio_norm como el municipio_base_norm
             for key in (of.get("municipio_norm"), of.get("municipio_base_norm")):
                 if key:
-                    BY_MUNICIPIO[_norm(key)].append((code, of.get("ordinal", 1)))
-            # sede
+                    BY_MUNICIPIO[_norm(key)].append((code, ord_n))
+
+            # Sede (clave: sede_norm)
             sede_key = of.get("sede_norm")
             if sede_key:
-                BY_SEDE[_norm(sede_key)].append((code, of.get("ordinal", 1)))
+                BY_SEDE[_norm(sede_key)].append((code, ord_n))
 
-        # Index temático (SOLO sobre programa_norm + palabras_clave del programa)
+        # 3) Título/tema: programa_norm + palabras_clave → n-gramas → códigos
         bag = [prog.get("programa_norm", "")] + (prog.get("palabras_clave") or [])
         for token in bag:
             for g in _grams(token):
                 NG_TITLE[g].append(code)
 
-TITLE_TOKENS = defaultdict(set)   # token -> {code,...}
-TITLE_PHRASES = defaultdict(set)  # frase (programa_norm/keyword completo) -> {code,...}
+    # 4) Expansión de alias de sedes (mapea el canon a todas sus variantes)
+    #    Nota: define SEDE_ALIASES_V2 y SEDE_ALIAS_TO_CANON a nivel de módulo.
+    if "SEDE_ALIASES_V2" in globals():
+        for canon, variants in SEDE_ALIASES_V2.items():
+            canon_key = _norm(canon)
+            pairs = BY_SEDE.get(canon_key, [])
+            if not pairs:
+                continue
+            for v in variants:
+                BY_SEDE[_norm(v)].extend(pairs)
 
-if DATA_FORMAT == "normalized_v2":
-    for code, prog in BY_CODE.items():
-        # tokens del nombre del programa
-        for tok in _tokens(prog.get("programa_norm", "")):
-            TITLE_TOKENS[tok].add(code)
-
-        # tokens de palabras clave
-        for kw in (prog.get("palabras_clave") or []):
-            for tok in _tokens(kw):
-                TITLE_TOKENS[tok].add(code)
-
-        # índice por frase completa (para match de “contains”)
-        if prog.get("programa_norm"):
-            TITLE_PHRASES[prog["programa_norm"]].add(code)
-        for kw in (prog.get("palabras_clave") or []):
-            kwn = _norm(kw)
-            if kwn:
-                TITLE_PHRASES[kwn].add(code)
-
-    
-    # Conjuntos de llaves conocidas (útiles para validaciones rápidas)
+    # 5) Llaves conocidas (después de expandir alias)
     KNOWN_MUNICIPIOS = set(BY_MUNICIPIO.keys())
     KNOWN_SEDES = set(BY_SEDE.keys())
 
@@ -493,6 +508,10 @@ def _parse_intent(q: str) -> dict:
             for k in KNOWN_SEDES:
                 if k in tail or tail in k:
                     sedes.add(k)
+            # Coincidencias por alias explícito
+            for v, canon in SEDE_ALIAS_TO_CANON.items():
+                if v in tail or tail in v:
+                    sedes.add(canon)
         else:
             # Formato previo (mantiene tu lógica antigua si existen esas estructuras)
             for k in BY_MUNICIPIO.keys():
