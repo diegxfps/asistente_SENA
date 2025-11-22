@@ -5,6 +5,19 @@ from collections import defaultdict
 def _here(*parts):
     return os.path.join(os.path.dirname(__file__), *parts)
 
+
+def _load_json_or_yaml(path: str):
+    """Carga un archivo JSON o YAML según la extensión."""
+    with open(path, "r", encoding="utf-8") as fh:
+        ext = os.path.splitext(path)[1].lower()
+        if ext in (".yaml", ".yml"):
+            try:
+                import yaml  # type: ignore
+            except ImportError as exc:
+                raise RuntimeError("PyYAML es requerido para cargar configuraciones YAML") from exc
+            return yaml.safe_load(fh)
+        return json.load(fh)
+
 # Prioridad: v2 (normalizado mejorado) > v1 (normalizado) > crudo (enriquecido)
 PROGRAMAS_PATH_CANDIDATES = [
     # ---- v2 ----
@@ -57,6 +70,72 @@ def _norm(s: str) -> str:
 def _tokens(s: str):
     return [t for t in re.split(r"[^\w]+", _norm(s)) if t]
 
+
+# ========================= CONFIGURACIÓN (alias / sinónimos) =========================
+
+CONFIG_DIR = _here("config")
+TOPIC_SYNONYM_PATHS = [
+    os.path.join(CONFIG_DIR, "topic_synonyms.json"),
+    os.path.join(CONFIG_DIR, "topic_synonyms.yaml"),
+    os.path.join(CONFIG_DIR, "topic_synonyms.yml"),
+]
+LOCATION_ALIAS_PATHS = [
+    os.path.join(CONFIG_DIR, "location_aliases.json"),
+    os.path.join(CONFIG_DIR, "location_aliases.yaml"),
+    os.path.join(CONFIG_DIR, "location_aliases.yml"),
+]
+
+
+def _first_existing(paths: list[str]) -> str:
+    for pth in paths:
+        if os.path.exists(pth):
+            return pth
+    raise FileNotFoundError(
+        "No se encontró ningún archivo de configuración en: " + ", ".join(paths)
+    )
+
+
+def _normalize_mapping(raw: dict, label: str) -> dict:
+    """Normaliza claves y valores con _norm y detecta duplicados."""
+    normalized = {}
+    seen = set()
+    duplicates = []
+    for canon, variants in (raw or {}).items():
+        canon_norm = _norm(canon)
+        if canon_norm in seen:
+            duplicates.append(canon_norm)
+            continue
+        seen.add(canon_norm)
+        vals = set()
+        for v in (variants or []):
+            v_norm = _norm(v)
+            if v_norm:
+                vals.add(v_norm)
+        vals.add(canon_norm)
+        normalized[canon_norm] = vals
+    if duplicates:
+        raise ValueError(f"Claves duplicadas en {label}: {', '.join(sorted(set(duplicates)))}")
+    return normalized
+
+
+def _load_topic_synonyms():
+    path = _first_existing(TOPIC_SYNONYM_PATHS)
+    data = _load_json_or_yaml(path) or {}
+    if not isinstance(data, dict):
+        raise ValueError("El archivo de sinónimos debe contener un objeto mapping")
+    return _normalize_mapping(data, "topic_synonyms")
+
+
+def _load_location_aliases():
+    path = _first_existing(LOCATION_ALIAS_PATHS)
+    data = _load_json_or_yaml(path) or {}
+    if not isinstance(data, dict):
+        raise ValueError("El archivo de alias debe contener un objeto mapping")
+    sede_aliases_v2 = _normalize_mapping(data.get("sede_aliases_v2") or {}, "sede_aliases_v2")
+    alias_municipio = _normalize_mapping(data.get("alias_municipio") or {}, "alias_municipio")
+    alias_sede = _normalize_mapping(data.get("alias_sede") or {}, "alias_sede")
+    return sede_aliases_v2, alias_municipio, alias_sede
+
 # Campos “temáticos” para buscar por tema
 def _fields_for_topic(p: dict) -> str:
     campos = [
@@ -76,13 +155,11 @@ NIVEL_CANON = {
     "operario":"operario","operarios":"operario",
 }
 
-# --- Alias de sedes (solo v2) ---
-SEDE_ALIASES_V2 = {
-    "sede alto cauca": {"alto cauca", "ctpi norte", "sede norte", "ctpi norte sena"},
-    "sena sede calle 5 con cra 14 esquina barrio valencia": {"calle 5", "barrio valencia", "ctpi barrio valencia"},
-    "sede la samaria": {"la samaria", "samaria"},
-    "sede la casona": {"la casona", "casona"},
-}
+# Alias y sinónimos desde configuración externa
+_SEDE_ALIASES_V2_RAW, ALIAS_MUNICIPIO, ALIAS_SEDE = _load_location_aliases()
+SEDE_ALIASES_V2 = _SEDE_ALIASES_V2_RAW
+_TOPIC_SYNONYMS = _load_topic_synonyms()
+
 # reverse lookup: variante -> canon (lo usa el parser)
 SEDE_ALIAS_TO_CANON = {}
 for canon, variants in SEDE_ALIASES_V2.items():
@@ -91,35 +168,6 @@ for canon, variants in SEDE_ALIASES_V2.items():
 
 
 # Expandir tokens de tema (sinónimos básicos; puedes añadir más)
-_TOPIC_SYNONYMS = {
-    # Negocios/finanzas
-    "gestion empresarial": {
-        "contabilidad", "contable", "cuentas", "costos", "finanzas",
-        "tesoreria", "facturacion", "tributaria", "nomina"
-    },
-    "gestion empresarial": {"gestion", "empresarial", "gestion empresarial", "administracion"},
-    "logistica": {"logistica", "logistico", "suministros"},
-
-    # TIC
-    "analisis y desarrollo de software": {
-        "software", "programacion", "desarrollo", "sistemas",
-        "computacion", "analisis y desarrollo", "ads", "adso", "analisis y desarrollo de software"
-    },
-    "redes": {"redes", "telecomunicaciones", "teleinformatica", "teleinformaticos", "cisco"},
-
-    # Industria/ingenierias
-    "automatizacion de sistemas mecatronicos": {"mecatronica", "automatizacion", "automatizacion industrial", "robotica", "sistemas mecatronicos"},
-    "electricidad industrial": {"electricidad", "electrico", "electrica", "instalaciones electricas"},
-    "construccion": {"construccion", "obra civil", "edificaciones", "albañileria"},
-
-    # Salud
-    "supervision en sistemas de agua y saneamiento": {
-        "supervision", "agua", "sistemas de agua", "saneamiento"
-    },
-
-    # Deportes / actividad fisica
-    "deporte": {"deporte", "actividad fisica", "entrenamiento", "fisiologia"},
-}
 def _expand_topic_tokens(tokens:set) -> set:
     base = set(tokens)
     for t in list(tokens):
