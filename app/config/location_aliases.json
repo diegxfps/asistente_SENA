@@ -1,0 +1,39 @@
+{
+  "sede_aliases_v2": {
+    "sede alto cauca": ["alto cauca", "ctpi norte", "sede norte", "ctpi norte sena"],
+    "sena sede calle 5 con cra 14 esquina barrio valencia": ["calle 5", "barrio valencia", "ctpi barrio valencia"],
+    "sede la samaria": ["la samaria", "samaria"],
+    "sede la casona": ["la casona", "casona"]
+  },
+  "alias_municipio": {
+    "popayan": ["popayan", "popa", "ppyn"],
+    "popayan - vrd. el sendero": [
+      "popayan - vrd. el sendero",
+      "popayan - vereda el sendero",
+      "vereda el sendero",
+      "vrd. el sendero",
+      "el sendero"
+    ],
+    "santander de quilichao": ["santander de quilichao", "quilichao", "qilichao"],
+    "guapi": ["guapi", "guapy", "guap"],
+    "la sierra": ["la sierra", "sierra", "siera"],
+    "mercaderes": ["mercaderes", "mercaderez"],
+    "morales": ["morales", "moralez", "morale"],
+    "puerto tejada": ["puerto tejada"],
+    "silvia": ["silvia", "silv", "slv"],
+    "timbio": ["timbio", "tmbio", "timbi"],
+    "timbiqui": ["timbiqui"]
+  },
+  "alias_sede": {
+    "la casona": ["la casona", "sede la casona", "casona"],
+    "sena sede calle 5 con cra 14 esquina barrio valencia": [
+      "calle 5",
+      "sena sede calle 5",
+      "sede calle 5",
+      "barrio valencia",
+      "ctpi barrio valencia"
+    ],
+    "sede alto cauca": ["alto cauca", "sede alto cauca", "sede norte", "ctpi norte"],
+    "sede la samaria": ["sede la samaria", "la samaria", "samaria"]
+  }
+}

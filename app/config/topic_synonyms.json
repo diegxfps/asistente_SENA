@@ -1,0 +1,41 @@
+{
+  "gestion empresarial": [
+    "contabilidad",
+    "contable",
+    "cuentas",
+    "costos",
+    "finanzas",
+    "tesoreria",
+    "facturacion",
+    "tributaria",
+    "nomina",
+    "gestion",
+    "empresarial",
+    "administracion",
+    "gestion empresarial"
+  ],
+  "logistica": ["logistica", "logistico", "suministros"],
+  "analisis y desarrollo de software": [
+    "software",
+    "programacion",
+    "desarrollo",
+    "sistemas",
+    "computacion",
+    "analisis y desarrollo",
+    "ads",
+    "adso",
+    "analisis y desarrollo de software"
+  ],
+  "redes": ["redes", "telecomunicaciones", "teleinformatica", "teleinformaticos", "cisco"],
+  "automatizacion de sistemas mecatronicos": [
+    "mecatronica",
+    "automatizacion",
+    "automatizacion industrial",
+    "robotica",
+    "sistemas mecatronicos"
+  ],
+  "electricidad industrial": ["electricidad", "electrico", "electrica", "instalaciones electricas"],
+  "construccion": ["construccion", "obra civil", "edificaciones", "albañileria"],
+  "supervision en sistemas de agua y saneamiento": ["supervision", "agua", "sistemas de agua", "saneamiento"],
+  "deporte": ["deporte", "actividad fisica", "entrenamiento", "fisiologia"]
+}
