@@ -54,7 +54,8 @@ class ConsentEvent(Base):
     id = Column(Integer, primary_key=True)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
     decision = Column(String(32), nullable=False)
-    metadata = Column(Text)
+    # "metadata" es una palabra reservada en SQLAlchemy Declarative, así que usamos otro nombre en Python
+    metadata_json = Column("metadata", Text)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
 
     user = relationship("User", back_populates="consent_events")

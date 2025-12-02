@@ -142,7 +142,9 @@ def _handle_onboarding(session: Session, user, state_obj, text: str, text_norm: 
     if state == ONBOARDING_STATES["TERMS_PENDING"]:
         if any(word in text_norm for word in {"acepto", "sí acepto", "si acepto", "aceptar"}):
             state_obj.state = ONBOARDING_STATES["ASK_DOCUMENT"]
-            session.add(ConsentEvent(user_id=user.id, decision="accepted", metadata=text.strip()))
+            session.add(
+                ConsentEvent(user_id=user.id, decision="accepted", metadata_json=text.strip())
+            )
             _log_interaction(
                 session,
                 user_id=user.id,
