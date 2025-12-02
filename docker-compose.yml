@@ -1,4 +1,18 @@
+version: "3.9"
+
 services:
+  db:
+    image: postgres:16
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: sena_bot
+      POSTGRES_USER: sena
+      POSTGRES_PASSWORD: sena
+    volumes:
+      - db_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+
   bot:
     build: .
     ports:
@@ -7,8 +21,14 @@ services:
     restart: unless-stopped
     environment:
       - HF_HOME=/app/storage_simple/hf_cache
+      - DATABASE_URL=${DATABASE_URL:-postgresql+psycopg2://sena:sena@db:5432/sena_bot}
+    depends_on:
+      - db
     volumes:
       - ./storage_simple:/app/storage_simple
       - ./scripts:/app/scripts
-      - ./storage_pdfs:/app/storage_pdfs   # <-- añade esta línea
+      - ./storage_pdfs:/app/storage_pdfs
       - ./app:/app/app
+
+volumes:
+  db_data:
