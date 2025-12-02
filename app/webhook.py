@@ -5,6 +5,17 @@ import unicodedata
 import re
 from flask import Flask, request, jsonify
 import requests
+from sqlalchemy.orm import Session
+
+# Capa de base de datos
+from app.db import (
+    ConsentEvent,
+    Interaction,
+    get_or_create_session_state,
+    get_or_create_user,
+    get_session,
+    init_db,
+)
 
 # Importa las funciones del core (v2/legacy compatibles)
 from app.core import (
@@ -29,6 +40,9 @@ GRAPH_URL = f"https://graph.facebook.com/v19.0/{WHATSAPP_PHONE_NUMBER_ID}/messag
 # ========================= APP =========================
 app = Flask(__name__)
 
+# Inicializar la base de datos (crea tablas si no existen)
+init_db()
+
 # ========================= ESTADO POR USUARIO =========================
 # Guardamos lo mínimo por chat para paginar y seleccionar por índice
 # STATE[user] = {
@@ -38,12 +52,23 @@ app = Flask(__name__)
 # }
 STATE = {}
 
+# ========================= ONBOARDING =========================
+ONBOARDING_STATES = {
+    "TERMS_PENDING": "TERMS_PENDING",
+    "ASK_DOCUMENT": "ASK_DOCUMENT",
+    "ASK_NAME": "ASK_NAME",
+    "ASK_CITY": "ASK_CITY",
+    "COMPLETED": "COMPLETED",
+}
+
+
 # ========================= HELPERS =========================
 def _norm_simple(s: str) -> str:
     if not s:
         return ""
     s = "".join(ch for ch in unicodedata.normalize("NFKD", s) if not unicodedata.combining(ch))
     return " ".join(s.lower().strip().split())
+
 
 def send_whatsapp_message(to: str, body: str):
     if not WHATSAPP_TOKEN or not WHATSAPP_PHONE_NUMBER_ID:
@@ -63,6 +88,29 @@ def send_whatsapp_message(to: str, body: str):
     except Exception as e:
         log.exception(f"Error al llamar al Graph API: {e}")
 
+
+def _log_interaction(
+    session: Session, user_id: int | None, direction: str, body: str, message_type: str, wa_message_id: str | None = None
+):
+    """Registra cada mensaje para mantener trazabilidad."""
+    session.add(
+        Interaction(
+            user_id=user_id,
+            direction=direction,
+            message_type=message_type or "text",
+            content=body,
+            wa_message_id=wa_message_id,
+        )
+    )
+
+
+def send_and_log(session: Session, user_id: int | None, to: str, body: str, message_type: str = "text"):
+    """Envia y registra un mensaje de salida."""
+    _log_interaction(session, user_id=user_id, direction="outbound", body=body, message_type=message_type)
+    session.flush()
+    send_whatsapp_message(to=to, body=body)
+
+
 def _extract_text(msg: dict) -> str:
     """Soporta 'text' y 'interactive' (botón/lista)."""
     mtype = msg.get("type")
@@ -76,6 +124,7 @@ def _extract_text(msg: dict) -> str:
         return br.get("title") or lr.get("title") or ""
     return ""
 
+
 def _current_page_items(user_id: str, page_size: int = 10):
     st = STATE.get(user_id, {})
     items = st.get("items", [])
@@ -84,10 +133,74 @@ def _current_page_items(user_id: str, page_size: int = 10):
     end = start + page_size
     return items[start:end]
 
+
+def _handle_onboarding(session: Session, user, state_obj, text: str, text_norm: str) -> str | None:
+    """Guía el flujo de consentimiento y datos mínimos."""
+    state = state_obj.state
+    data = state_obj.data or {}
+
+    if state == ONBOARDING_STATES["TERMS_PENDING"]:
+        if any(word in text_norm for word in {"acepto", "sí acepto", "si acepto", "aceptar"}):
+            state_obj.state = ONBOARDING_STATES["ASK_DOCUMENT"]
+            session.add(
+                ConsentEvent(user_id=user.id, decision="accepted", metadata_json=text.strip())
+            )
+            _log_interaction(
+                session,
+                user_id=user.id,
+                direction="system",
+                body="consent_accepted",
+                message_type="consent",
+            )
+            return (
+                "¡Gracias! Para continuar necesitamos tus datos. "
+                "¿Cuál es tu número de documento?"
+            )
+        return (
+            "Antes de ayudarte necesito confirmar que aceptas el tratamiento de datos personales del SENA. "
+            "Responde *ACEPTO* para continuar o *NO* si no deseas seguir."
+        )
+
+    if state == ONBOARDING_STATES["ASK_DOCUMENT"]:
+        if not text_norm:
+            return "Necesito tu número de documento para continuar."
+        data["document_id"] = text.strip()
+        user.document_id = text.strip()
+        state_obj.data = data
+        state_obj.state = ONBOARDING_STATES["ASK_NAME"]
+        return "Gracias. ¿Cuál es tu nombre completo?"
+
+    if state == ONBOARDING_STATES["ASK_NAME"]:
+        if not text_norm:
+            return "Por favor comparte tu nombre completo."
+        data["name"] = text.strip()
+        user.name = text.strip()
+        state_obj.data = data
+        state_obj.state = ONBOARDING_STATES["ASK_CITY"]
+        return "¿En qué ciudad o municipio te encuentras?"
+
+    if state == ONBOARDING_STATES["ASK_CITY"]:
+        if not text_norm:
+            return "Confírmame tu ciudad o municipio para finalizar."
+        data["city"] = text.strip()
+        user.city = text.strip()
+        user.consent_accepted = True
+        state_obj.data = data
+        state_obj.state = ONBOARDING_STATES["COMPLETED"]
+        return (
+            "¡Listo! Ya guardé tus datos y puedes empezar a buscar programas del SENA. "
+            "Cuéntame qué programa o municipio te interesa."
+        )
+
+    # Si ya completó, continuar con el flujo normal
+    return None
+
+
 # ========================= HEALTH & VERIFY =========================
 @app.get("/health")
 def health():
     return jsonify({"status": "ok"})
+
 
 @app.get("/webhook")
 def verify():
@@ -98,6 +211,7 @@ def verify():
         log.info("✅ Verificación OK")
         return challenge, 200
     return "forbidden", 403
+
 
 # ========================= INCOMING =========================
 @app.post("/webhook")
@@ -117,58 +231,79 @@ def incoming():
         from_number = msg.get("from")
         text = _extract_text(msg) or ""
         text_norm = _norm_simple(text)
-        st = STATE.get(from_number, {"last_query": "", "page": 0, "items": []})
 
-        # ============= 1) Selección directa "codigo-ordinal" =================
-        m_code_idx = re.fullmatch(r"\s*(\d{5,7})-(\d{1,2})\s*", text_norm)
-        if m_code_idx:
-            code, ord_str = m_code_idx.groups()
-            ord_n = int(ord_str)
-            respuesta = ficha_por_codigo_y_ordinal(code, ord_n)
-            # mantener contexto en caso de que el usuario siga con "ver más"
-            STATE[from_number] = {"last_query": f"{code}-{ord_n}", "page": 0, "items": []}
-            send_whatsapp_message(to=from_number, body=respuesta)
-            return "ok", 200
+        with get_session() as session:
+            user = get_or_create_user(session, from_number)
+            _log_interaction(
+                session,
+                user_id=user.id,
+                direction="inbound",
+                body=text,
+                message_type=msg.get("type", "text"),
+                wa_message_id=msg.get("id"),
+            )
 
-        # ============= 2) "ver más": misma búsqueda, siguiente página ========
-        if text_norm in {"ver mas", "ver más", "vermas"}:
-            if not st["last_query"]:
-                send_whatsapp_message(
-                    to=from_number,
-                    body="No tengo una búsqueda previa. Escribe por ejemplo: *tecnólogos en Popayán* o *programas en La Casona*."
-                )
+            state_obj = get_or_create_session_state(session, user)
+            if not user.consent_accepted or state_obj.state != ONBOARDING_STATES["COMPLETED"]:
+                onboarding_reply = _handle_onboarding(session, user, state_obj, text, text_norm)
+                if onboarding_reply:
+                    send_and_log(session, user.id, from_number, onboarding_reply)
                 return "ok", 200
 
-            # Siguiente página
-            st["page"] += 1
-            # Volvemos a pedir la respuesta con show_all=True y la página nueva
-            respuesta = generar_respuesta(st["last_query"], show_all=True, page=st["page"], page_size=10)
-            STATE[from_number] = st
-            send_whatsapp_message(to=from_number, body=respuesta)
-            return "ok", 200
+            st = STATE.get(from_number, {"last_query": "", "page": 0, "items": []})
 
-        # ============= 3) Selección por índice (1..10) en la página actual ===
-        if re.fullmatch(r"[1-9]|10", text_norm) and st.get("items"):
-            idx = int(text_norm) - 1
-            page_items = _current_page_items(from_number, page_size=10)
-            if 0 <= idx < len(page_items):
-                code, ord_n = page_items[idx]
+            # ============= 1) Selección directa "codigo-ordinal" =================
+            m_code_idx = re.fullmatch(r"\s*(\d{5,7})-(\d{1,2})\s*", text_norm)
+            if m_code_idx:
+                code, ord_str = m_code_idx.groups()
+                ord_n = int(ord_str)
                 respuesta = ficha_por_codigo_y_ordinal(code, ord_n)
-                send_whatsapp_message(to=from_number, body=respuesta)
+                # mantener contexto en caso de que el usuario siga con "ver más"
+                STATE[from_number] = {"last_query": f"{code}-{ord_n}", "page": 0, "items": []}
+                send_and_log(session, user.id, from_number, respuesta)
                 return "ok", 200
-            # si no válido, sigue al flujo normal
 
-        # ============= 4) Consulta normal ================================
-        # Guardamos los items para poder seleccionar por índice y paginar
-        intent = _parse_intent(text_norm)
-        items = _search_programs(intent)
-        st = {"last_query": text_norm, "page": 0, "items": items}
-        STATE[from_number] = st
+            # ============= 2) "ver más": misma búsqueda, siguiente página ========
+            if text_norm in {"ver mas", "ver más", "vermas"}:
+                if not st["last_query"]:
+                    send_and_log(
+                        session,
+                        user.id,
+                        from_number,
+                        "No tengo una búsqueda previa. Escribe por ejemplo: *tecnólogos en Popayán* o *programas en La Casona*.",
+                    )
+                    return "ok", 200
 
-        # Render principal (página 1)
-        respuesta = generar_respuesta(text, show_all=False, page=0, page_size=10)
-        send_whatsapp_message(to=from_number, body=respuesta)
-        return "ok", 200
+                # Siguiente página
+                st["page"] += 1
+                # Volvemos a pedir la respuesta con show_all=True y la página nueva
+                respuesta = generar_respuesta(st["last_query"], show_all=True, page=st["page"], page_size=10)
+                STATE[from_number] = st
+                send_and_log(session, user.id, from_number, respuesta)
+                return "ok", 200
+
+            # ============= 3) Selección por índice (1..10) en la página actual ===
+            if re.fullmatch(r"[1-9]|10", text_norm) and st.get("items"):
+                idx = int(text_norm) - 1
+                page_items = _current_page_items(from_number, page_size=10)
+                if 0 <= idx < len(page_items):
+                    code, ord_n = page_items[idx]
+                    respuesta = ficha_por_codigo_y_ordinal(code, ord_n)
+                    send_and_log(session, user.id, from_number, respuesta)
+                    return "ok", 200
+                # si no válido, sigue al flujo normal
+
+            # ============= 4) Consulta normal ================================
+            # Guardamos los items para poder seleccionar por índice y paginar
+            intent = _parse_intent(text_norm)
+            items = _search_programs(intent)
+            st = {"last_query": text_norm, "page": 0, "items": items}
+            STATE[from_number] = st
+
+            # Render principal (página 1)
+            respuesta = generar_respuesta(text, show_all=False, page=0, page_size=10)
+            send_and_log(session, user.id, from_number, respuesta)
+            return "ok", 200
 
     except Exception as e:
         log.exception(f"Error procesando webhook: {e}")

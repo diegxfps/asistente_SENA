@@ -1,0 +1,134 @@
+import os
+from contextlib import contextmanager
+from datetime import datetime
+from typing import Optional
+
+from sqlalchemy import (
+    Boolean,
+    Column,
+    DateTime,
+    ForeignKey,
+    Integer,
+    JSON,
+    String,
+    Text,
+    create_engine,
+)
+from sqlalchemy.dialects.sqlite import JSON as SQLiteJSON
+from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy.orm import Session, relationship, sessionmaker
+
+# ========================= CONFIG =========================
+DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///storage_simple/app.db")
+
+# SQLite necesita este flag para uso en múltiples hilos
+connect_args = {"check_same_thread": False} if DATABASE_URL.startswith("sqlite") else {}
+
+engine = create_engine(DATABASE_URL, connect_args=connect_args, future=True)
+SessionLocal = sessionmaker(bind=engine, autoflush=False, autocommit=False, future=True)
+
+Base = declarative_base()
+
+
+# ========================= MODELOS =========================
+class User(Base):
+    __tablename__ = "users"
+
+    id = Column(Integer, primary_key=True)
+    wa_number = Column(String(32), unique=True, nullable=False, index=True)
+    name = Column(String(255))
+    city = Column(String(255))
+    document_id = Column(String(50))
+    consent_accepted = Column(Boolean, default=False, nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+
+    interactions = relationship("Interaction", back_populates="user", cascade="all, delete-orphan")
+    session_state = relationship("SessionState", uselist=False, back_populates="user", cascade="all, delete-orphan")
+    consent_events = relationship("ConsentEvent", back_populates="user", cascade="all, delete-orphan")
+
+
+class ConsentEvent(Base):
+    __tablename__ = "consent_events"
+
+    id = Column(Integer, primary_key=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    decision = Column(String(32), nullable=False)
+    # "metadata" es una palabra reservada en SQLAlchemy Declarative, así que usamos otro nombre en Python
+    metadata_json = Column("metadata", Text)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+
+    user = relationship("User", back_populates="consent_events")
+
+
+class Interaction(Base):
+    __tablename__ = "interactions"
+
+    id = Column(Integer, primary_key=True)
+    user_id = Column(Integer, ForeignKey("users.id"))
+    direction = Column(String(16), nullable=False)
+    message_type = Column(String(32), default="text", nullable=False)
+    content = Column(Text, nullable=False)
+    wa_message_id = Column(String(128))
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+
+    user = relationship("User", back_populates="interactions")
+
+
+class SessionState(Base):
+    __tablename__ = "session_state"
+
+    id = Column(Integer, primary_key=True)
+    user_id = Column(Integer, ForeignKey("users.id"), unique=True, nullable=False)
+    state = Column(String(64), default="TERMS_PENDING", nullable=False)
+    data = Column(JSON().with_variant(SQLiteJSON, "sqlite"), default=dict)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+
+    user = relationship("User", back_populates="session_state")
+
+
+# ========================= HELPERS =========================
+@contextmanager
+def get_session():
+    session: Session = SessionLocal()
+    try:
+        yield session
+        session.commit()
+    except Exception:
+        session.rollback()
+        raise
+    finally:
+        session.close()
+
+
+def init_db():
+    if DATABASE_URL.startswith("sqlite"):
+        db_path = DATABASE_URL.replace("sqlite:///", "")
+        if db_path:
+            os.makedirs(os.path.dirname(db_path) or ".", exist_ok=True)
+    Base.metadata.create_all(bind=engine)
+
+
+def get_or_create_user(session: Session, wa_number: str) -> User:
+    user: Optional[User] = session.query(User).filter_by(wa_number=wa_number).first()
+    if user:
+        return user
+    user = User(wa_number=wa_number, consent_accepted=False)
+    session.add(user)
+    session.flush()
+    # crear estado de sesión base
+    state = SessionState(user=user, state="TERMS_PENDING", data={})
+    session.add(state)
+    session.commit()
+    session.refresh(user)
+    return user
+
+
+def get_or_create_session_state(session: Session, user: User) -> SessionState:
+    if user.session_state:
+        return user.session_state
+    state = SessionState(user=user, state="TERMS_PENDING", data={})
+    session.add(state)
+    session.flush()
+    session.refresh(state)
+    return state
