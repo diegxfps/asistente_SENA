@@ -10,11 +10,11 @@ from sqlalchemy.orm import Session
 # Capa de base de datos
 from app.db import (
     ConsentEvent,
-    Interaction,
     get_or_create_session_state,
     get_or_create_user,
     get_session,
     init_db,
+    log_interaction,
 )
 
 # Importa las funciones del core (v2/legacy compatibles)
@@ -89,25 +89,13 @@ def send_whatsapp_message(to: str, body: str):
         log.exception(f"Error al llamar al Graph API: {e}")
 
 
-def _log_interaction(
-    session: Session, user_id: int | None, direction: str, body: str, message_type: str, wa_message_id: str | None = None
-):
-    """Registra cada mensaje para mantener trazabilidad."""
-    session.add(
-        Interaction(
-            user_id=user_id,
-            direction=direction,
-            message_type=message_type or "text",
-            content=body,
-            wa_message_id=wa_message_id,
-        )
-    )
-
-
 def send_and_log(session: Session, user_id: int | None, to: str, body: str, message_type: str = "text"):
-    """Envia y registra un mensaje de salida."""
-    _log_interaction(session, user_id=user_id, direction="outbound", body=body, message_type=message_type)
-    session.flush()
+    """Envia un mensaje de salida.
+
+    Para reducir el tamaño de la base de datos no registramos los mensajes de salida por
+    defecto. Si se necesita trazabilidad en un caso puntual puede agregarse un log
+    explícito en el flujo correspondiente.
+    """
     send_whatsapp_message(to=to, body=body)
 
 
@@ -145,12 +133,13 @@ def _handle_onboarding(session: Session, user, state_obj, text: str, text_norm: 
             session.add(
                 ConsentEvent(user_id=user.id, decision="accepted", metadata_json=text.strip())
             )
-            _log_interaction(
+            log_interaction(
                 session,
                 user_id=user.id,
                 direction="system",
                 body="consent_accepted",
                 message_type="consent",
+                step="onboarding",
             )
             return (
                 "¡Gracias! Para continuar necesitamos tus datos. "
@@ -234,17 +223,18 @@ def incoming():
 
         with get_session() as session:
             user = get_or_create_user(session, from_number)
-            _log_interaction(
-                session,
-                user_id=user.id,
-                direction="inbound",
-                body=text,
-                message_type=msg.get("type", "text"),
-                wa_message_id=msg.get("id"),
-            )
-
             state_obj = get_or_create_session_state(session, user)
             if not user.consent_accepted or state_obj.state != ONBOARDING_STATES["COMPLETED"]:
+                log_interaction(
+                    session,
+                    user_id=user.id,
+                    direction="inbound",
+                    body=text,
+                    intent=_parse_intent(text_norm) if text_norm else None,
+                    step="onboarding",
+                    message_type=msg.get("type", "text"),
+                    wa_message_id=msg.get("id"),
+                )
                 onboarding_reply = _handle_onboarding(session, user, state_obj, text, text_norm)
                 if onboarding_reply:
                     send_and_log(session, user.id, from_number, onboarding_reply)
@@ -252,11 +242,24 @@ def incoming():
 
             st = STATE.get(from_number, {"last_query": "", "page": 0, "items": []})
 
+            intent = _parse_intent(text_norm) if text_norm else None
+
             # ============= 1) Selección directa "codigo-ordinal" =================
             m_code_idx = re.fullmatch(r"\s*(\d{5,7})-(\d{1,2})\s*", text_norm)
             if m_code_idx:
                 code, ord_str = m_code_idx.groups()
                 ord_n = int(ord_str)
+                log_interaction(
+                    session,
+                    user_id=user.id,
+                    direction="inbound",
+                    body=text,
+                    intent=intent,
+                    program_code=code,
+                    step="details",
+                    message_type=msg.get("type", "text"),
+                    wa_message_id=msg.get("id"),
+                )
                 respuesta = ficha_por_codigo_y_ordinal(code, ord_n)
                 # mantener contexto en caso de que el usuario siga con "ver más"
                 STATE[from_number] = {"last_query": f"{code}-{ord_n}", "page": 0, "items": []}
@@ -265,6 +268,16 @@ def incoming():
 
             # ============= 2) "ver más": misma búsqueda, siguiente página ========
             if text_norm in {"ver mas", "ver más", "vermas"}:
+                log_interaction(
+                    session,
+                    user_id=user.id,
+                    direction="inbound",
+                    body=text,
+                    intent=intent,
+                    step="pagination",
+                    message_type=msg.get("type", "text"),
+                    wa_message_id=msg.get("id"),
+                )
                 if not st["last_query"]:
                     send_and_log(
                         session,
@@ -288,6 +301,17 @@ def incoming():
                 page_items = _current_page_items(from_number, page_size=10)
                 if 0 <= idx < len(page_items):
                     code, ord_n = page_items[idx]
+                    log_interaction(
+                        session,
+                        user_id=user.id,
+                        direction="inbound",
+                        body=text,
+                        intent=intent,
+                        program_code=code,
+                        step="details",
+                        message_type=msg.get("type", "text"),
+                        wa_message_id=msg.get("id"),
+                    )
                     respuesta = ficha_por_codigo_y_ordinal(code, ord_n)
                     send_and_log(session, user.id, from_number, respuesta)
                     return "ok", 200
@@ -295,10 +319,21 @@ def incoming():
 
             # ============= 4) Consulta normal ================================
             # Guardamos los items para poder seleccionar por índice y paginar
-            intent = _parse_intent(text_norm)
+            intent = intent or _parse_intent(text_norm)
             items = _search_programs(intent)
             st = {"last_query": text_norm, "page": 0, "items": items}
             STATE[from_number] = st
+
+            log_interaction(
+                session,
+                user_id=user.id,
+                direction="inbound",
+                body=text,
+                intent=intent,
+                step="search",
+                message_type=msg.get("type", "text"),
+                wa_message_id=msg.get("id"),
+            )
 
             # Render principal (página 1)
             respuesta = generar_respuesta(text, show_all=False, page=0, page_size=10)

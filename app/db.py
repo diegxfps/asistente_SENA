@@ -13,6 +13,8 @@ from sqlalchemy import (
     String,
     Text,
     create_engine,
+    inspect,
+    text,
 )
 from sqlalchemy.dialects.sqlite import JSON as SQLiteJSON
 from sqlalchemy.ext.declarative import declarative_base
@@ -69,6 +71,12 @@ class Interaction(Base):
     direction = Column(String(16), nullable=False)
     message_type = Column(String(32), default="text", nullable=False)
     content = Column(Text, nullable=False)
+    body_short = Column(String(255))
+    intent = Column(String(64))
+    program_code = Column(String(64))
+    step = Column(String(64))
+    context_state = Column(JSON().with_variant(SQLiteJSON, "sqlite"))
+    metadata_json = Column("metadata", JSON().with_variant(SQLiteJSON, "sqlite"))
     wa_message_id = Column(String(128))
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
 
@@ -107,6 +115,7 @@ def init_db():
         if db_path:
             os.makedirs(os.path.dirname(db_path) or ".", exist_ok=True)
     Base.metadata.create_all(bind=engine)
+    _ensure_interaction_lightweight_columns()
 
 
 def get_or_create_user(session: Session, wa_number: str) -> User:
@@ -132,3 +141,70 @@ def get_or_create_session_state(session: Session, user: User) -> SessionState:
     session.flush()
     session.refresh(state)
     return state
+
+
+def _ensure_interaction_lightweight_columns() -> None:
+    """Add lightweight analytics columns if they don't exist yet."""
+
+    inspector = inspect(engine)
+    if "interactions" not in inspector.get_table_names():
+        return
+
+    existing_columns = {col["name"] for col in inspector.get_columns("interactions")}
+    additions: list[str] = []
+
+    def _add(column_name: str, ddl: str):
+        if column_name not in existing_columns:
+            additions.append(f"ALTER TABLE interactions ADD COLUMN {ddl}")
+
+    varchar = "VARCHAR"
+    json_type = "JSONB" if engine.dialect.name == "postgresql" else "JSON"
+
+    _add("body_short", f"{varchar}(255)")
+    _add("intent", f"{varchar}(64)")
+    _add("program_code", f"{varchar}(64)")
+    _add("step", f"{varchar}(64)")
+    _add("context_state", json_type)
+    _add("metadata", json_type)
+
+    if not additions:
+        return
+
+    with engine.begin() as conn:
+        for stmt in additions:
+            conn.execute(text(stmt))
+
+
+def log_interaction(
+    session: Session,
+    user_id: int | None,
+    direction: str,
+    body: str | None = None,
+    intent: str | None = None,
+    program_code: str | None = None,
+    step: str | None = None,
+    message_type: str | None = None,
+    wa_message_id: str | None = None,
+) -> None:
+    """Log a lightweight interaction row without storing heavy payloads.
+
+    Only the short body, intent, program_code and step are persisted; context_state and
+    metadata are intentionally left empty to keep storage usage low.
+    """
+
+    body_short = body[:255] if body else None
+    session.add(
+        Interaction(
+            user_id=user_id,
+            direction=direction,
+            message_type=message_type or "text",
+            content=body_short or "",
+            body_short=body_short,
+            intent=intent,
+            program_code=program_code,
+            step=step,
+            context_state=None,
+            metadata_json=None,
+            wa_message_id=wa_message_id,
+        )
+    )

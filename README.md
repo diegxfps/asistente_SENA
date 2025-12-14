@@ -23,6 +23,16 @@ python scripts/init_db.py
 
 Si usas Docker Compose, el contenedor del bot ejecutará `init_db()` al arrancar, creando las tablas si no existen.
 
+### Limpieza de interacciones antiguas
+
+Para mantener la base de datos por debajo del límite de 1 GB (por ejemplo en Render) puedes borrar interacciones antiguas con:
+
+```bash
+PYTHONPATH=. DATABASE_URL="postgresql+psycopg2://..." python3 scripts/cleanup_interactions.py
+```
+
+Por defecto elimina registros con más de 180 días (`RETENTION_DAYS` permite ajustar el número de días). Ejecuta este comando de forma periódica desde tu máquina local (cron, tarea programada, etc.) apuntando a la base de datos de producción.
+
 ## Ejecutar con Docker Compose
 
 El `docker-compose.yml` incluye un servicio Postgres listo para usar.
@@ -55,7 +65,7 @@ docker-compose up --build
 
 - Al primer mensaje desde un número nuevo, el bot solicita consentimiento y datos mínimos (documento, nombre, ciudad).
 - Hasta completar este flujo, no se permite la consulta normal de programas.
-- Cada mensaje entrante/saliente se registra en la tabla `interactions`.
+- Cada mensaje entrante se registra en la tabla `interactions` con solo los campos mínimos (sentido, intención, paso, etc.).
 
 ## Buscar programas
 
