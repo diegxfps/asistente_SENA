@@ -185,14 +185,18 @@ def log_interaction(
     step: str | None = None,
     message_type: str | None = None,
     wa_message_id: str | None = None,
+    metadata: dict | None = None,
 ) -> None:
     """Log a lightweight interaction row without storing heavy payloads.
 
-    Only the short body, intent, program_code and step are persisted; context_state and
-    metadata are intentionally left empty to keep storage usage low.
+    Only the short body, intent, program_code and step are persisted; context_state stays
+    empty. Extra structured data can be stored in the metadata JSON column.
     """
 
+    intent_value = intent if isinstance(intent, str) else None
+    metadata_value = metadata if isinstance(metadata, dict) else None
     body_short = body[:255] if body else None
+
     session.add(
         Interaction(
             user_id=user_id,
@@ -200,11 +204,11 @@ def log_interaction(
             message_type=message_type or "text",
             content=body_short or "",
             body_short=body_short,
-            intent=intent,
+            intent=intent_value,
             program_code=program_code,
             step=step,
             context_state=None,
-            metadata_json=None,
+            metadata_json=metadata_value,
             wa_message_id=wa_message_id,
         )
     )
