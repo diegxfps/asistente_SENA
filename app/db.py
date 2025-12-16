@@ -155,7 +155,7 @@ def _ensure_interaction_lightweight_columns() -> None:
 
     def _add(column_name: str, ddl: str):
         if column_name not in existing_columns:
-            additions.append(f"ALTER TABLE interactions ADD COLUMN {ddl}")
+            additions.append(f"ALTER TABLE interactions ADD COLUMN {column_name} {ddl}")
 
     varchar = "VARCHAR"
     json_type = "JSONB" if engine.dialect.name == "postgresql" else "JSON"
