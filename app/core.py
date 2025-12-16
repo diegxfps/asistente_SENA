@@ -1365,41 +1365,12 @@ def _is_greeting(text_norm: str) -> bool:
     )
 
 
-def _pick_greeting_response(text_norm: str) -> str:
-    """Devuelve una de las respuestas de saludo."""
-    if not GREETING_RESPONSES:
-        return (
-            "¡Hola! Soy el asistente del SENA. Puedo ayudarte a buscar programas y responder dudas generales."
-        )
-    idx = hash(text_norm) % len(GREETING_RESPONSES)
-    return GREETING_RESPONSES[idx]
-
-
 def _match_sena_info(text_norm: str) -> dict | None:
     """Busca la respuesta de conocimiento general por tags normalizados."""
     for item in SENA_INFO:
         for tag in item.get("tags_norm", []):
             if tag and tag in text_norm:
                 return item
-    return None
-
-
-def route_general_response(text: str) -> tuple[str, str] | None:
-    """Router para saludos y conocimiento general del SENA.
-
-    Devuelve (respuesta, etiqueta_intento) o None si debe seguir al flujo de programas.
-    """
-    qn = _norm(text)
-    if _is_greeting(qn):
-        return _pick_greeting_response(qn), "greeting"
-
-    matched = _match_sena_info(qn)
-    if matched:
-        title = matched.get("title") or "Información SENA"
-        answer = matched.get("answer") or ""
-        intent_id = matched.get("id") or "sena_info"
-        return f"*{title}*\n{answer}", f"sena_info:{intent_id}"
-
     return None
 
 def generar_respuesta(texto: str, show_all: bool = False, page: int = 0, page_size: int = 10) -> str:
