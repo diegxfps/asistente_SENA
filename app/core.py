@@ -1365,6 +1365,29 @@ def _is_greeting(text_norm: str) -> bool:
     )
 
 
+def route_general_response(texto: str):
+    """Responde saludos y preguntas generales sin pasar por el buscador."""
+
+    if not texto:
+        return None
+
+    qn = _norm(texto)
+
+    # --- Saludos / small-talk ---
+    if _is_greeting(qn):
+        idx = hash(qn) % len(GREETING_RESPONSES)
+        return GREETING_RESPONSES[idx], "greeting"
+
+    # --- Conocimiento general del SENA ---
+    matched = _match_sena_info(qn)
+    if matched:
+        title = matched.get("title") or "Información SENA"
+        answer = matched.get("answer") or ""
+        return f"*{title}*\n{answer}", "general_info"
+
+    return None
+
+
 def _match_sena_info(text_norm: str) -> dict | None:
     """Busca la respuesta de conocimiento general por tags normalizados."""
     for item in SENA_INFO:
