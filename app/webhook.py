@@ -24,6 +24,7 @@ from app.core import (
     ficha_por_codigo_y_ordinal,
     _parse_intent,
     _search_programs,
+    route_general_response,
 )
 
 # ========================= LOGGING =========================
@@ -243,6 +244,23 @@ def incoming():
             st = STATE.get(from_number, {"last_query": "", "page": 0, "items": []})
 
             intent = _parse_intent(text_norm) if text_norm else None
+
+            # ============= Router para saludos / info general del SENA ==========
+            routed = route_general_response(text)
+            if routed:
+                respuesta_routed, routed_intent = routed
+                log_interaction(
+                    session,
+                    user_id=user.id,
+                    direction="inbound",
+                    body=text,
+                    intent=routed_intent,
+                    step="routed",
+                    message_type=msg.get("type", "text"),
+                    wa_message_id=msg.get("id"),
+                )
+                send_and_log(session, user.id, from_number, respuesta_routed)
+                return "ok", 200
 
             # ============= 1) Selección directa "codigo-ordinal" =================
             m_code_idx = re.fullmatch(r"\s*(\d{5,7})-(\d{1,2})\s*", text_norm)
