@@ -1,4 +1,5 @@
 import os
+from collections.abc import Mapping, Sequence
 from contextlib import contextmanager
 from datetime import datetime
 from typing import Optional
@@ -118,6 +119,26 @@ def init_db():
     _ensure_interaction_lightweight_columns()
 
 
+def make_json_safe(obj):
+    """Recursively convert objects so they are JSON-serializable."""
+
+    if obj is None or isinstance(obj, (str, int, float, bool)):
+        return obj
+    if isinstance(obj, datetime):
+        return obj.isoformat()
+    if isinstance(obj, set):
+        return [make_json_safe(item) for item in obj]
+    if isinstance(obj, Mapping):
+        return {str(k): make_json_safe(v) for k, v in obj.items()}
+    if isinstance(obj, Sequence) and not isinstance(obj, (str, bytes, bytearray)):
+        return [make_json_safe(item) for item in obj]
+
+    try:
+        return str(obj)
+    except Exception:
+        return repr(obj)
+
+
 def get_or_create_user(session: Session, wa_number: str) -> User:
     user: Optional[User] = session.query(User).filter_by(wa_number=wa_number).first()
     if user:
@@ -186,6 +207,7 @@ def log_interaction(
     message_type: str | None = None,
     wa_message_id: str | None = None,
     metadata: dict | None = None,
+    context_state: dict | None = None,
 ) -> None:
     """Log a lightweight interaction row without storing heavy payloads.
 
@@ -194,7 +216,8 @@ def log_interaction(
     """
 
     intent_value = intent if isinstance(intent, str) else None
-    metadata_value = metadata if isinstance(metadata, dict) else None
+    metadata_value = make_json_safe(metadata) if metadata is not None else None
+    context_value = make_json_safe(context_state) if context_state is not None else None
     body_short = body[:255] if body else None
 
     session.add(
@@ -207,7 +230,7 @@ def log_interaction(
             intent=intent_value,
             program_code=program_code,
             step=step,
-            context_state=None,
+            context_state=context_value,
             metadata_json=metadata_value,
             wa_message_id=wa_message_id,
         )
