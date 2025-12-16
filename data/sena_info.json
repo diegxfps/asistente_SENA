@@ -1,0 +1,26 @@
+[
+  {
+    "id": "que_es_sena",
+    "tags": ["que es el sena", "qué es el sena", "sobre el sena", "sena"],
+    "title": "¿Qué es el SENA?",
+    "answer": "El SENA es el Servicio Nacional de Aprendizaje, la entidad pública que forma talento en Colombia.\n• Ofrece formación técnica, tecnológica y complementaria gratuita.\n• Presencial, virtual y en alternancia según el programa.\n• Entrega certificados y apoya la empleabilidad a través de su Agencia Pública de Empleo."
+  },
+  {
+    "id": "como_inscribirme",
+    "tags": ["como inscribirme", "cómo inscribirme", "inscripcion", "inscripción", "registrarme", "como me registro", "registro sofia", "sofia plus"],
+    "title": "¿Cómo me inscribo?",
+    "answer": "Te cuento rápido:\n1) Regístrate en la plataforma de inscripción (<ENLACE_REGISTRO>).\n2) Completa tus datos personales y de contacto.\n3) Busca el programa de interés y postúlate dentro de las fechas.\n💡 Revisa bien requisitos y horarios antes de enviar tu solicitud."
+  },
+  {
+    "id": "continuar_proceso",
+    "tags": ["continuar proceso", "siguiente paso", "despues de inscribirme", "ya me inscribi", "ya me inscribí"],
+    "title": "¿Cómo continuar el proceso?",
+    "answer": "Después de inscribirte, sigue estos pasos generales:\n• Consulta en tu correo o en la plataforma si tienes pruebas o entrevistas asignadas.\n• Presenta las evaluaciones en las fechas indicadas.\n• Si eres seleccionado, finaliza matrícula con los documentos que te soliciten."
+  },
+  {
+    "id": "canales_contacto",
+    "tags": ["contacto sena", "atencion sena", "canales de informacion", "canales de información", "redes sena", "oficial", "donde preguntar"],
+    "title": "Canales oficiales",
+    "answer": "Para información oficial puedes usar: \n• La plataforma de inscripción y consultas: <ENLACE_REGISTRO>.\n• El portal institucional y redes oficiales del SENA.\n• Líneas de atención publicadas en los canales oficiales de tu regional."
+  }
+]

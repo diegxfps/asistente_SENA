@@ -70,3 +70,12 @@ docker-compose up --build
 ## Buscar programas
 
 El flujo existente de búsqueda, paginación (`ver más`) y selección por índice se mantiene intacto tras el onboarding.
+
+## Conocimiento del bot
+
+El asistente responde exclusivamente sobre temas relacionados con el SENA:
+
+- **Programas de formación**: usa `storage_simple/programas_enriquecido.json` (o las versiones normalizadas si existen) para entregar detalles de programas, ubicaciones y horarios.
+- **Información general del SENA**: usa `data/sena_info.json`, un archivo editable por el equipo para ajustar textos, tags y enlaces (por ejemplo al registro). Cada entrada tiene `id`, `tags` (palabras/frases que activan la respuesta), `title` y `answer` en español.
+
+Para actualizar las respuestas generales, edita `data/sena_info.json` agregando o ajustando tags y el campo `answer` (puedes usar marcadores como `<ENLACE_REGISTRO>` que luego se reemplazan con la URL oficial).
