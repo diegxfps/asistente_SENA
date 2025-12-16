@@ -24,18 +24,42 @@ def _load_json_or_yaml(path: str):
         return json.load(fh)
 
 
+def _norm_basic_no_accents(s: str) -> str:
+    s = s or ""
+    s = "".join(ch for ch in unicodedata.normalize("NFKD", str(s)) if not unicodedata.combining(ch))
+    return " ".join(s.lower().strip().split())
+
+
 # ----------------------- Información general SENA -----------------------
-SENA_INFO_PATH = (Path(__file__).resolve().parent / ".." / "data" / "sena_info.json").resolve()
-try:
-    with open(SENA_INFO_PATH, "r", encoding="utf-8") as fh:
-        GENERAL_INFO = json.load(fh) or []
-    log.info("Loaded %s entries from sena_info.json", len(GENERAL_INFO))
-except FileNotFoundError:
-    GENERAL_INFO = []
-    log.warning("sena_info.json no encontrado en %s", SENA_INFO_PATH)
-except Exception:
-    GENERAL_INFO = []
-    log.exception("Error cargando sena_info.json desde %s", SENA_INFO_PATH)
+SENA_INFO_PATH = Path(__file__).resolve().parent.parent.joinpath("data", "sena_info.json")
+
+
+def _load_sena_info(path: Path) -> list[dict]:
+    try:
+        with path.open("r", encoding="utf-8") as fh:
+            data = json.load(fh) or []
+    except FileNotFoundError:
+        log.warning("sena_info.json no encontrado en %s", path)
+        return []
+    except Exception:
+        log.exception("Error cargando sena_info.json desde %s", path)
+        return []
+
+    normalized: list[dict] = []
+    for item in data:
+        tags_norm = []
+        for tag in item.get("tags", []) or []:
+            tag_norm = _norm_basic_no_accents(tag)
+            if tag_norm:
+                tags_norm.append(tag_norm)
+        item["tags_norm"] = tags_norm
+        normalized.append(item)
+
+    log.info("Loaded %s entries from sena_info.json", len(normalized))
+    return normalized
+
+
+GENERAL_INFO = _load_sena_info(SENA_INFO_PATH)
 
 # Compatibilidad hacia atrás: algunas rutas antiguas referencian SENA_INFO
 SENA_INFO = GENERAL_INFO
@@ -94,10 +118,47 @@ def _tokens(s: str):
     return [t for t in re.split(r"[^\w]+", _norm(s)) if t]
 
 
-def _norm_basic_no_accents(s: str) -> str:
-    s = s or ""
-    s = "".join(ch for ch in unicodedata.normalize("NFKD", str(s)) if not unicodedata.combining(ch))
-    return " ".join(s.lower().strip().split())
+def _topic_tokens_from_text(text: str) -> set[str]:
+    base_tokens = {t for t in _tokens(text) if t and t not in TOPIC_STOPWORDS}
+    return _expand_topic_tokens(base_tokens)
+
+
+TOPIC_STOPWORDS = {
+    "programa",
+    "programas",
+    "sobre",
+    "quiero",
+    "quieren",
+    "quisiera",
+    "saber",
+    "relacionados",
+    "relacionado",
+    "relacionadas",
+    "relacionada",
+    "informacion",
+    "información",
+    "acerca",
+    "acerca de",
+    "acerca del",
+    "acerca de los",
+    "acerca de las",
+    "a",
+    "de",
+    "en",
+    "el",
+    "la",
+    "los",
+    "las",
+    "un",
+    "una",
+    "unos",
+    "unas",
+}
+
+_BUILTIN_TOPIC_SYNONYMS = {
+    _norm("mecanica"): {_norm(x) for x in ["mecánica", "automotriz", "motos", "mantenimiento", "vehiculos", "vehículos"]},
+    _norm("sistemas"): {_norm(x) for x in ["sistemas", "software", "programación", "tic", "informática", "informatica"]},
+}
 
 
 def _match_general_info_entry(text: str):
@@ -106,9 +167,7 @@ def _match_general_info_entry(text: str):
 
     text_norm = _norm_basic_no_accents(text)
     for entry in GENERAL_INFO:
-        tags = entry.get("tags") or []
-        for tag in tags:
-            tag_norm = _norm_basic_no_accents(tag)
+        for tag_norm in entry.get("tags_norm", []):
             if tag_norm and tag_norm in text_norm:
                 return entry
     return None
@@ -221,8 +280,12 @@ for canon, variants in SEDE_ALIASES_V2.items():
 def _expand_topic_tokens(tokens:set) -> set:
     base = set(tokens)
     for t in list(tokens):
+        synonyms = set()
         if t in _TOPIC_SYNONYMS:
-            base |= _TOPIC_SYNONYMS[t]
+            synonyms |= _TOPIC_SYNONYMS[t]
+        if t in _BUILTIN_TOPIC_SYNONYMS:
+            synonyms |= _BUILTIN_TOPIC_SYNONYMS[t]
+        base |= synonyms
     return base
 
 # Patrón “nivel + (sobre|en|de) + tema/ubicación”
@@ -694,18 +757,14 @@ def _parse_intent(q: str) -> dict:
 
         if prep == "sobre":
             # Tema explícito
-            tema_tokens = _tokens(_norm(tail_txt))
-            # Expand solo si tienes sinónimos configurados; si no, deja tokens directos
-            expand = globals().get("_expand_topic_tokens")
-            tema_tokens = expand(set(tema_tokens)) if expand else set(tema_tokens)
+            tema_tokens = _topic_tokens_from_text(tail_txt)
             return {"nivel": nivel, "tema_tokens": tema_tokens} if nivel else {"tema_tokens": tema_tokens}
 
     # 5) Si no hubo prep explícita, intenta detectar ubicación en toda la frase
     mun_all, sed_all = _collect_loc_matches(qn)
 
     # 6) Tema implícito (palabras restantes)
-    toks = set(_tokens(qn))
-    tema_tokens = toks - set(NIVEL_CANON.keys()) - {"en", "de", "sobre", "la", "el", "los", "las"}
+    tema_tokens = _topic_tokens_from_text(qn)
 
     # 7) Reglas de retorno (prioriza señales fuertes)
     if nivel and (mun_all or sed_all):
@@ -1404,7 +1463,7 @@ def route_general_response(texto: str):
         return GREETING_RESPONSES[idx], "greeting"
 
     # --- Conocimiento general del SENA ---
-    matched = _match_sena_info(qn)
+    matched = _match_sena_info(texto)
     if matched:
         title = matched.get("title") or "Información SENA"
         answer = matched.get("answer") or ""
@@ -1413,11 +1472,13 @@ def route_general_response(texto: str):
     return None
 
 
-def _match_sena_info(text_norm: str) -> dict | None:
+def _match_sena_info(text: str) -> dict | None:
     """Busca la respuesta de conocimiento general por tags normalizados."""
+    text_norm = _norm_basic_no_accents(text)
     for item in SENA_INFO:
         for tag in item.get("tags_norm", []):
             if tag and tag in text_norm:
+                log.debug("Matched sena_info id=%s", item.get("id"))
                 return item
     return None
 
