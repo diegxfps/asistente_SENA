@@ -1,5 +1,10 @@
-import os, json, re, unicodedata
+import os, json, re, unicodedata, logging
 from collections import defaultdict
+from pathlib import Path
+
+log = logging.getLogger(__name__)
+if not logging.getLogger().handlers:
+    logging.basicConfig(level=logging.INFO)
 
 # ========================= CARGA DE DATOS =========================
 def _here(*parts):
@@ -17,6 +22,20 @@ def _load_json_or_yaml(path: str):
                 raise RuntimeError("PyYAML es requerido para cargar configuraciones YAML") from exc
             return yaml.safe_load(fh)
         return json.load(fh)
+
+
+# ----------------------- Información general SENA -----------------------
+SENA_INFO_PATH = (Path(__file__).resolve().parent / ".." / "data" / "sena_info.json").resolve()
+try:
+    with open(SENA_INFO_PATH, "r", encoding="utf-8") as fh:
+        GENERAL_INFO = json.load(fh) or []
+    log.info("Loaded %s entries from sena_info.json", len(GENERAL_INFO))
+except FileNotFoundError:
+    GENERAL_INFO = []
+    log.warning("sena_info.json no encontrado en %s", SENA_INFO_PATH)
+except Exception:
+    GENERAL_INFO = []
+    log.exception("Error cargando sena_info.json desde %s", SENA_INFO_PATH)
 
 # Prioridad: v2 (normalizado mejorado) > v1 (normalizado) > crudo (enriquecido)
 PROGRAMAS_PATH_CANDIDATES = [
@@ -69,6 +88,33 @@ def _norm(s: str) -> str:
 
 def _tokens(s: str):
     return [t for t in re.split(r"[^\w]+", _norm(s)) if t]
+
+
+def _norm_basic_no_accents(s: str) -> str:
+    s = s or ""
+    s = "".join(ch for ch in unicodedata.normalize("NFKD", str(s)) if not unicodedata.combining(ch))
+    return " ".join(s.lower().strip().split())
+
+
+def _match_general_info_entry(text: str):
+    if not GENERAL_INFO:
+        return None
+
+    text_norm = _norm_basic_no_accents(text)
+    for entry in GENERAL_INFO:
+        tags = entry.get("tags") or []
+        for tag in tags:
+            tag_norm = _norm_basic_no_accents(tag)
+            if tag_norm and tag_norm in text_norm:
+                return entry
+    return None
+
+
+def _match_general_info_answer(text: str) -> str | None:
+    match = _match_general_info_entry(text)
+    if not match:
+        return None
+    return match.get("answer") or match.get("respuesta") or match.get("response")
 
 
 # ========================= CONFIGURACIÓN (alias / sinónimos) =========================
@@ -1357,6 +1403,12 @@ def generar_respuesta(texto: str, show_all: bool = False, page: int = 0, page_si
     follow = _handle_follow_query(texto)
     if follow:
         return follow
+
+
+    # --- Información general del SENA ---
+    general_info = _match_general_info_answer(texto)
+    if general_info:
+        return general_info
 
 
     # --- Parseo de intención ---
