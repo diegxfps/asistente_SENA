@@ -37,6 +37,11 @@ except Exception:
     GENERAL_INFO = []
     log.exception("Error cargando sena_info.json desde %s", SENA_INFO_PATH)
 
+# Compatibilidad hacia atrás: algunas rutas antiguas referencian SENA_INFO
+# directamente.  Mantener el alias evita NameError si quedan importaciones
+# rezagadas (p. ej. en workers o webhooks ya desplegados).
+SENA_INFO = GENERAL_INFO
+
 # Prioridad: v2 (normalizado mejorado) > v1 (normalizado) > crudo (enriquecido)
 PROGRAMAS_PATH_CANDIDATES = [
     # ---- v2 ----
