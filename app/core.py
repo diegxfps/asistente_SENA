@@ -123,18 +123,37 @@ def _topic_tokens_from_text(text: str) -> set[str]:
     return _expand_topic_tokens(base_tokens)
 
 
+def _intent_topic_tokens(intent: dict) -> set[str]:
+    """Devuelve tokens temáticos excluyendo palabras de ubicación detectadas."""
+    tokens = set(intent.get("tema_tokens") or [])
+    loc_tokens = set()
+    loc = intent.get("location") or {}
+    for vals in loc.values():
+        for val in vals:
+            loc_tokens.update(_tokens(val))
+
+    if loc_tokens:
+        tokens = {t for t in tokens if t not in loc_tokens}
+
+    return tokens
+
+
 TOPIC_STOPWORDS = {
     "programa",
     "programas",
     "sobre",
+    "busco",
+    "buscar",
     "quiero",
     "quieren",
     "quisiera",
     "saber",
+    "conocer",
     "relacionados",
     "relacionado",
     "relacionadas",
     "relacionada",
+    "relacion",
     "informacion",
     "información",
     "acerca",
@@ -153,6 +172,13 @@ TOPIC_STOPWORDS = {
     "una",
     "unos",
     "unas",
+    "del",
+    "al",
+    "por",
+    "para",
+    "que",
+    "cual",
+    "cuál",
 }
 
 _BUILTIN_TOPIC_SYNONYMS = {
@@ -365,39 +391,31 @@ def _topic_match_codes(intent: dict) -> set:
                 out.add(c)
         return out
 
-    tokens = set(intent.get("tema_tokens") or [])
+    tokens = _intent_topic_tokens(intent)
     tail   = _norm(intent.get("tail_text") or "")
+    scores = _topic_scores_v2(tokens, tail) if DATA_FORMAT == "normalized_v2" else []
 
-    codes = set()
-
-    # 1) frase (si viene desde "sobre ...")
-    if tail:
-        for phrase, cs in TITLE_PHRASES.items():
-            if tail in phrase or phrase in tail:
-                codes |= cs
-
-    # 2) tokens con umbral: exigimos al menos la mitad (redondeo hacia arriba) o 2, lo que sea menor pero ≥1
-    if tokens:
-        from math import ceil
-        hit_counter = defaultdict(int)
+    if DATA_FORMAT != "normalized_v2":
+        # Fallback: usa NG_TITLE existente
+        grams = set()
         for t in tokens:
-            for c in TITLE_TOKENS.get(_norm(t), ()):
-                hit_counter[c] += 1
+            grams |= _grams(t)
+        out = set()
+        for g in grams:
+            for c in NG_TITLE.get(g, []):
+                out.add(c)
+        return out
 
-        need = max(1, min(2, ceil(len(tokens) / 2)))
-        for c, hits in hit_counter.items():
-            if hits >= need:
-                codes.add(c)
-
-    return codes
+    return {code for code, _ in scores}
 
 
 def _topic_match_score_v2(prog: dict, tema_tokens: set[str], tema_phrase: str) -> int:
     """
     Calcula un puntaje de match temático SOLO usando el programa base (v2).
-    Evita falsos positivos premiando frase exacta y cobertura de tokens.
+    Aplica pesos explícitos por campo para priorizar título/área/keywords
+    sobre descripciones, y normaliza acentos para evitar falsos negativos.
     """
-    if not tema_tokens:
+    if not (tema_tokens or tema_phrase):
         return 0
 
     titulo = _norm(prog.get("programa") or prog.get("programa_norm") or "")
@@ -406,20 +424,42 @@ def _topic_match_score_v2(prog: dict, tema_tokens: set[str], tema_phrase: str) -
     kw_norm = " ".join(_norm(k or "") for k in kw)
     kw_toks = set(_tokens(kw_norm))
 
+    descripcion = _norm(
+        " ".join(
+            [
+                prog.get("perfil") or prog.get("perfil_egresado") or "",
+                prog.get("competencias") or "",
+                prog.get("descripcion") or prog.get("descripción") or "",
+            ]
+        )
+    )
+    desc_toks = set(_tokens(descripcion))
+
     score = 0
 
-    # 1) Frase exacta en el título
-    if tema_phrase and tema_phrase in titulo:
-        score += 100
+    # 1) Frase exacta en campos de alto peso
+    if tema_phrase:
+        if tema_phrase in titulo:
+            score += 80
+        if any(tema_phrase in _norm(k or "") for k in kw):
+            score += 60
 
-    # 2) Todos los tokens del tema están en el título
-    if tema_tokens and tema_tokens.issubset(titulo_toks):
-        score += 60
-
-    # 3) Cobertura por palabras_clave
+    # 2) Cobertura ponderada por campo
     if tema_tokens:
-        covered_kw = len(tema_tokens & kw_toks)
-        score += covered_kw * 10
+        title_hits = len(tema_tokens & titulo_toks)
+        kw_hits = len(tema_tokens & kw_toks)
+        desc_hits = len(tema_tokens & desc_toks)
+
+        score += title_hits * 25  # título/nombre
+        score += kw_hits * 22      # palabras clave / área-familia
+        score += desc_hits * 10    # perfil/competencias/descripcion
+
+        # Bonus por cubrir todos los tokens solicitados
+        coverage = len((titulo_toks | kw_toks | desc_toks) & tema_tokens)
+        if coverage:
+            score += coverage * 5
+        if coverage == len(tema_tokens):
+            score += 20
 
     return score
 
@@ -432,7 +472,7 @@ def _topic_scores_v2(tema_tokens: set[str], tema_phrase: str) -> list[tuple[str,
     results = []
     for code, prog in BY_CODE.items():
         sc = _topic_match_score_v2(prog, tema_tokens, tema_phrase)
-        if sc >= 20:
+        if sc >= 15:
             results.append((code, sc))
     results.sort(key=lambda x: (-x[1], BY_CODE[x[0]]["programa_norm"]))
     return results
@@ -785,12 +825,8 @@ def _parse_intent(q: str) -> dict:
 def _score_code(code: str, intent: dict) -> int:
     """
     Scoring para DATA_FORMAT == 'normalized_v2'.
-    Puntos:
-      +5 si el nivel coincide exactamente.
-      +3 si coincide municipio (municipio_norm o municipio_base_norm) en alguna oferta.
-      +3 si coincide sede (sede_norm) en alguna oferta.
-      +2 por cada token de tema en común (máx +10).
-      +8 si la frase de la cola ('tail_text') está contenida en el nombre del programa.
+    Priorizamos afinidad temática ponderada por campos, con la ubicación como
+    factor secundario y nivel como bonus.
     En formatos legacy retorna 0 (se ordena por nombre).
     """
     if DATA_FORMAT != "normalized_v2":
@@ -811,30 +847,21 @@ def _score_code(code: str, intent: dict) -> int:
     ofertas = prog.get("ofertas") or []
 
     if "municipio" in loc:
-        muni_keys = { _norm(x) for x in loc["municipio"] if x }
+        muni_keys = {_norm(x) for x in loc["municipio"] if x}
         if any((of.get("municipio_norm") in muni_keys) or
                (of.get("municipio_base_norm") in muni_keys) for of in ofertas):
-            score += 3
+            score += 2
 
     if "sede" in loc:
-        sede_keys = { _norm(x) for x in loc["sede"] if x }
+        sede_keys = {_norm(x) for x in loc["sede"] if x}
         if any(of.get("sede_norm") in sede_keys for of in ofertas):
-            score += 3
+            score += 2
 
     # Afinidad por tema
-    tema = set(intent.get("tema_tokens") or [])
-    if tema:
-        # bolsa de términos del programa: nombre + palabras_clave
-        bag = set(_tokens(prog.get("programa_norm", "")))
-        for kw in (prog.get("palabras_clave") or []):
-            bag |= set(_tokens(kw))
-
-        overlap = len(tema & bag)
-        score += min(10, overlap * 2)  # hasta +10
-
-        tail = _norm(intent.get("tail_text") or "")
-        if tail and (tail in (prog.get("programa_norm", ""))):
-            score += 8
+    tema_tokens = _intent_topic_tokens(intent)
+    tail = _norm(intent.get("tail_text") or "")
+    if tema_tokens or tail:
+        score += min(120, _topic_match_score_v2(prog, tema_tokens, tail))
 
     return score
 
