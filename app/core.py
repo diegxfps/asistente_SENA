@@ -54,6 +54,7 @@ for pth in PROGRAMAS_PATH_CANDIDATES:
 if not PROGRAMAS:
     PROGRAMAS = []  # evita crash si no encuentra archivo
     DATA_FORMAT = "raw"
+
 # ========================= NORMALIZACIÓN =========================
 
 def _strip(s):
@@ -69,6 +70,30 @@ def _norm(s: str) -> str:
 
 def _tokens(s: str):
     return [t for t in re.split(r"[^\w]+", _norm(s)) if t]
+
+
+# Base de conocimiento general del SENA
+SENA_INFO_PATHS = [
+    _here("data", "sena_info.json"),
+    _here("..", "data", "sena_info.json"),
+    "data/sena_info.json",
+]
+
+
+def _load_sena_info():
+    for pth in SENA_INFO_PATHS:
+        if os.path.exists(pth):
+            with open(pth, "r", encoding="utf-8") as fh:
+                data = json.load(fh) or []
+            # Normalizamos tags para matching rápido
+            for item in data:
+                tags = item.get("tags") or []
+                item["tags_norm"] = [_norm(t) for t in tags if _norm(t)]
+            return data
+    return []
+
+
+SENA_INFO = _load_sena_info()
 
 
 # ========================= CONFIGURACIÓN (alias / sinónimos) =========================
@@ -1301,6 +1326,53 @@ STATE = {
     "header": "",
 }
 
+GREETING_KEYWORDS = {
+    "hola",
+    "holi",
+    "holis",
+    "buenos dias",
+    "buen dia",
+    "buenas",
+    "buenas tardes",
+    "buenas noches",
+    "saludos",
+    "hey",
+    "ola",
+    "gracias",
+    "como estas",
+    "cómo estas",
+    "como estas?",
+    "qué tal",
+    "que tal",
+}
+
+GREETING_RESPONSES = [
+    (
+        "¡Hola! 👋 Soy el asistente del SENA. "
+        "Puedo ayudarte a buscar programas de formación y responder dudas generales como "
+        "‘qué es el SENA’ o ‘cómo inscribirme’. ¿Qué tienes en mente?"
+    ),
+    (
+        "¡Hola! 🙌 Soy tu asistente del SENA. "
+        "Dime si quieres saber sobre programas, horarios o cómo registrarte y te guío."
+    ),
+]
+
+
+def _is_greeting(text_norm: str) -> bool:
+    return text_norm in GREETING_KEYWORDS or any(
+        text_norm.startswith(prefix) for prefix in GREETING_KEYWORDS
+    )
+
+
+def _match_sena_info(text_norm: str) -> dict | None:
+    """Busca la respuesta de conocimiento general por tags normalizados."""
+    for item in SENA_INFO:
+        for tag in item.get("tags_norm", []):
+            if tag and tag in text_norm:
+                return item
+    return None
+
 def generar_respuesta(texto: str, show_all: bool = False, page: int = 0, page_size: int = 10) -> str:
     """
     Motor principal del bot con soporte de paginación 'ver más'.
@@ -1315,19 +1387,6 @@ def generar_respuesta(texto: str, show_all: bool = False, page: int = 0, page_si
 
     qn = _norm(texto)
 
-    # --- Detección contextual de saludo en frases largas ---
-    if any(qn.startswith(g) or qn.startswith(f"buen {g}") for g in ["hola", "buenos", "buenas", "saludos", "hey", "holi", "ola", "muy"]):
-        return (
-            "👋 ¡Hola! Bienvenido/a al *Asistente del SENA Regional Cauca*.\n\n"
-            "Puedes pedirme información así:\n"
-            "• *técnico en sistemas Popayán*\n"
-            "• *tecnólogos sobre software*\n"
-            "• *programas en La Casona*\n"
-            "• o un código directo como *233104-2*.\n\n"
-            "¿Sobre qué programa o lugar te gustaría saber?"
-        )
-
-    
     # --- Paginación: 'ver más' ---
     if qn in {"ver mas", "ver más", "vermas"} and STATE.get("items"):
         STATE["page"] += 1
@@ -1337,21 +1396,17 @@ def generar_respuesta(texto: str, show_all: bool = False, page: int = 0, page_si
             return "No hay más resultados en esta lista."
         return (STATE.get("header") or f"Resultados (pág. {STATE['page']+1}):\n") + body
 
-    # --- Saludos / Ayuda ---
-    GREETINGS = {
-        "hola", "buenos dias", "buen dia", "buenas", "buenas tardes", "buenas noches",
-        "hola sena", "menu", "menú", "ayuda", "start", "hi", "hello"
-    }
-    if qn in GREETINGS:
-        return (
-            "¡Hola! Soy el asistente del *SENA Regional Cauca* 👋\n\n"
-            "Puedes preguntarme por:\n"
-            "• Nivel: *técnico*, *tecnólogo*, *auxiliar*, *operario*\n"
-            "• Ubicación: *programas en Popayán*, *en La Casona*, *en Alto Cauca*\n"
-            "• Tema: *tecnólogos sobre contabilidad*, *técnicos sobre software*\n"
-            "• Código: *233104* o *233104-2*\n\n"
-            "💡 Escribe *ver más* para ver la siguiente página de resultados."
-        )
+    # --- Saludos / small-talk ---
+    if _is_greeting(qn):
+        idx = hash(qn) % len(GREETING_RESPONSES)
+        return GREETING_RESPONSES[idx]
+
+    # --- Conocimiento general del SENA ---
+    matched = _match_sena_info(qn)
+    if matched:
+        title = matched.get("title") or "Información SENA"
+        answer = matched.get("answer") or ""
+        return f"*{title}*\n{answer}"
 
     # --- Consultas puntuales (requisitos, perfil, horario, competencias, etc.) ---
     follow = _handle_follow_query(texto)
@@ -1382,15 +1437,11 @@ def generar_respuesta(texto: str, show_all: bool = False, page: int = 0, page_si
     # --- Búsqueda general ---
     results = _search_programs(intent)
     if not results:
-        tips = [
-            "• *tecnólogos sobre software*",
-            "• *programas sobre sistemas*",
-            "• *programas en Sede Alto Cauca*",
-            "• *[codigo] para saber donde se impartirá*",
-        ]
-        if intent.get("nivel"):
-            tips.insert(0, f"• *{intent['nivel']} en Popayán*")
-        return "No encontré coincidencias. Prueba con:\n" + "\n".join(tips)
+        return (
+            "No estoy seguro de haber entendido. Puedo ayudarte a buscar programas de formación del SENA "
+            "y responder dudas como ‘qué es el SENA’, ‘cómo inscribirme’ o ‘cómo continuar el proceso’. "
+            "¿Me repites tu pregunta con otras palabras?"
+        )
 
     # --- Encabezado ---
     if intent.get("location", {}).get("municipio"):
