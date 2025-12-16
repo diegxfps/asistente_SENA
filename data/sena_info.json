@@ -1,0 +1,17 @@
+[
+  {
+    "id": "como_inscribirme",
+    "tags": ["inscripción", "inscribirme", "cómo inscribirme", "inscripcion", "como me inscribo", "como inscribirme"],
+    "answer": "Para inscribirte, crea o ingresa a tu cuenta en Sofía Plus y busca la convocatoria del programa que te interesa."
+  },
+  {
+    "id": "que_es_sena",
+    "tags": ["que es el sena", "qué es el sena", "que es sena"],
+    "answer": "El SENA es el Servicio Nacional de Aprendizaje, una entidad pública que ofrece formación gratuita en Colombia."
+  },
+  {
+    "id": "canales_contacto",
+    "tags": ["contacto sena", "telefono sena", "canales de contacto", "atencion sena"],
+    "answer": "Puedes comunicarte con el SENA en la línea nacional 018000 910 270 o vía WhatsApp al 310 503 8750."
+  }
+]
