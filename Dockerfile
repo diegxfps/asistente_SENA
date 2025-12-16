@@ -17,6 +17,7 @@ RUN python -m pip install --upgrade pip \
 
 # copiar tu app y datos
 COPY app ./app
+COPY app data ./data
 COPY storage_simple ./storage_simple
 
 ENV PYTHONUNBUFFERED=1
