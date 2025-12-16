@@ -100,6 +100,32 @@ def send_and_log(session: Session, user_id: int | None, to: str, body: str, mess
     send_whatsapp_message(to=to, body=body)
 
 
+def _intent_label(intent: dict | str | None) -> str | None:
+    if intent is None:
+        return None
+    if isinstance(intent, str):
+        return intent
+    if intent.get("code") and intent.get("ordinal"):
+        return "program_details"
+    if intent.get("code"):
+        return "program_code"
+    if intent.get("tema_tokens") or intent.get("location") or intent.get("nivel"):
+        return "program_search"
+    return "unknown"
+
+
+def _prepare_intent(intent: dict | str | None) -> tuple[str | None, dict | None]:
+    return _intent_label(intent), intent if isinstance(intent, dict) else None
+
+
+def _safe_log_interaction(**kwargs):
+    try:
+        with get_session() as logging_session:
+            log_interaction(logging_session, **kwargs)
+    except Exception:
+        log.exception("Failed to log interaction")
+
+
 def _extract_text(msg: dict) -> str:
     """Soporta 'text' y 'interactive' (botón/lista)."""
     mtype = msg.get("type")
@@ -226,12 +252,15 @@ def incoming():
             user = get_or_create_user(session, from_number)
             state_obj = get_or_create_session_state(session, user)
             if not user.consent_accepted or state_obj.state != ONBOARDING_STATES["COMPLETED"]:
-                log_interaction(
-                    session,
+                intent_label, intent_metadata = _prepare_intent(
+                    _parse_intent(text_norm) if text_norm else None
+                )
+                _safe_log_interaction(
                     user_id=user.id,
                     direction="inbound",
                     body=text,
-                    intent=_parse_intent(text_norm) if text_norm else None,
+                    intent=intent_label,
+                    metadata=intent_metadata,
                     step="onboarding",
                     message_type=msg.get("type", "text"),
                     wa_message_id=msg.get("id"),
@@ -243,18 +272,19 @@ def incoming():
 
             st = STATE.get(from_number, {"last_query": "", "page": 0, "items": []})
 
-            intent = _parse_intent(text_norm) if text_norm else None
+            intent_data = _parse_intent(text_norm) if text_norm else None
 
             # ============= Router para saludos / info general del SENA ==========
             routed = route_general_response(text)
             if routed:
                 respuesta_routed, routed_intent = routed
-                log_interaction(
-                    session,
+                routed_label, routed_metadata = _prepare_intent(routed_intent)
+                _safe_log_interaction(
                     user_id=user.id,
                     direction="inbound",
                     body=text,
-                    intent=routed_intent,
+                    intent=routed_label,
+                    metadata=routed_metadata,
                     step="routed",
                     message_type=msg.get("type", "text"),
                     wa_message_id=msg.get("id"),
@@ -267,12 +297,13 @@ def incoming():
             if m_code_idx:
                 code, ord_str = m_code_idx.groups()
                 ord_n = int(ord_str)
-                log_interaction(
-                    session,
+                intent_label, intent_metadata = _prepare_intent(intent_data)
+                _safe_log_interaction(
                     user_id=user.id,
                     direction="inbound",
                     body=text,
-                    intent=intent,
+                    intent=intent_label,
+                    metadata=intent_metadata,
                     program_code=code,
                     step="details",
                     message_type=msg.get("type", "text"),
@@ -286,12 +317,13 @@ def incoming():
 
             # ============= 2) "ver más": misma búsqueda, siguiente página ========
             if text_norm in {"ver mas", "ver más", "vermas"}:
-                log_interaction(
-                    session,
+                intent_label, intent_metadata = _prepare_intent(intent_data)
+                _safe_log_interaction(
                     user_id=user.id,
                     direction="inbound",
                     body=text,
-                    intent=intent,
+                    intent=intent_label,
+                    metadata=intent_metadata,
                     step="pagination",
                     message_type=msg.get("type", "text"),
                     wa_message_id=msg.get("id"),
@@ -319,12 +351,13 @@ def incoming():
                 page_items = _current_page_items(from_number, page_size=10)
                 if 0 <= idx < len(page_items):
                     code, ord_n = page_items[idx]
-                    log_interaction(
-                        session,
+                    intent_label, intent_metadata = _prepare_intent(intent_data)
+                    _safe_log_interaction(
                         user_id=user.id,
                         direction="inbound",
                         body=text,
-                        intent=intent,
+                        intent=intent_label,
+                        metadata=intent_metadata,
                         program_code=code,
                         step="details",
                         message_type=msg.get("type", "text"),
@@ -337,17 +370,18 @@ def incoming():
 
             # ============= 4) Consulta normal ================================
             # Guardamos los items para poder seleccionar por índice y paginar
-            intent = intent or _parse_intent(text_norm)
-            items = _search_programs(intent)
+            search_intent = intent_data or _parse_intent(text_norm) or {}
+            intent_label, intent_metadata = _prepare_intent(search_intent)
+            items = _search_programs(search_intent)
             st = {"last_query": text_norm, "page": 0, "items": items}
             STATE[from_number] = st
 
-            log_interaction(
-                session,
+            _safe_log_interaction(
                 user_id=user.id,
                 direction="inbound",
                 body=text,
-                intent=intent,
+                intent=intent_label,
+                metadata=intent_metadata,
                 step="search",
                 message_type=msg.get("type", "text"),
                 wa_message_id=msg.get("id"),
