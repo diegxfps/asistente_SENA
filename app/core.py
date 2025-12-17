@@ -151,6 +151,22 @@ def _intent_topic_tokens(intent: dict) -> set[str]:
     return tokens
 
 
+def _extract_explicit_city(q: str) -> tuple[str | None, str | None]:
+    """
+    Extrae una ciudad explícita con el patrón "en <ciudad>" o
+    "en la ciudad de <ciudad>".
+    Devuelve (raw, norm) o (None, None) si no se detecta.
+    """
+    q_strip = _strip(q)
+    m = re.search(r"\ben\s+(?:la\s+ciudad\s+de\s+)?([\w\sáéíóúüñÁÉÍÓÚÜ]+)$", q_strip, flags=re.IGNORECASE)
+    if not m:
+        return None, None
+
+    city_raw = _strip(m.group(1))
+    city_norm = _norm(city_raw)
+    return city_raw or None, city_norm or None
+
+
 TOPIC_STOPWORDS = {
     "programa",
     "programas",
@@ -725,15 +741,22 @@ def _parse_intent(q: str) -> dict:
     """
     qn = _norm(q or "")
 
+    city_raw, city_norm = _extract_explicit_city(q or "")
+
+    def _with_explicit_city(data: dict) -> dict:
+        if city_norm and city_norm in KNOWN_MUNICIPIOS:
+            data = {**data, "explicit_city": {"raw": city_raw, "norm": city_norm}}
+        return data
+
     # 1) código-ordinal: 233104-2
     m = re.fullmatch(r"\s*(\d{5,7})-(\d{1,2})\s*", qn)
     if m:
-        return {"code": m.group(1), "ordinal": int(m.group(2))}
+        return _with_explicit_city({"code": m.group(1), "ordinal": int(m.group(2))})
 
     # 2) código puro
     m = re.fullmatch(r"\s*(\d{5,7})\s*", qn)
     if m:
-        return {"code": m.group(1)}
+        return _with_explicit_city({"code": m.group(1)})
 
     # 3) nivel
     nivel = None
@@ -806,12 +829,12 @@ def _parse_intent(q: str) -> dict:
             mun_detect, sede_detect = _collect_loc_matches(tail_txt)
             if mun_detect or sede_detect:
                 loc = {"municipio": list(mun_detect)} if mun_detect else {"sede": list(sede_detect)}
-                return {"nivel": nivel, "location": loc, "tail_text": _norm(tail_txt)}
+                return _with_explicit_city({"nivel": nivel, "location": loc, "tail_text": _norm(tail_txt)})
 
         if prep == "sobre":
             # Tema explícito
             tema_tokens = _topic_tokens_from_text(tail_txt)
-            return {"nivel": nivel, "tema_tokens": tema_tokens} if nivel else {"tema_tokens": tema_tokens}
+            return _with_explicit_city({"nivel": nivel, "tema_tokens": tema_tokens} if nivel else {"tema_tokens": tema_tokens})
 
     # 5) Si no hubo prep explícita, intenta detectar ubicación en toda la frase
     mun_all, sed_all = _collect_loc_matches(qn)
@@ -821,18 +844,18 @@ def _parse_intent(q: str) -> dict:
 
     # 7) Reglas de retorno (prioriza señales fuertes)
     if nivel and (mun_all or sed_all):
-        return {"nivel": nivel, "location": {"municipio": list(mun_all)} if mun_all else {"sede": list(sed_all)}}
+        return _with_explicit_city({"nivel": nivel, "location": {"municipio": list(mun_all)} if mun_all else {"sede": list(sed_all)}})
     if mun_all:
-        return {"location": {"municipio": list(mun_all)}}
+        return _with_explicit_city({"location": {"municipio": list(mun_all)}})
     if sed_all:
-        return {"location": {"sede": list(sed_all)}}
+        return _with_explicit_city({"location": {"sede": list(sed_all)}})
     if nivel and tema_tokens:
-        return {"nivel": nivel, "tema_tokens": tema_tokens}
+        return _with_explicit_city({"nivel": nivel, "tema_tokens": tema_tokens})
     if tema_tokens:
-        return {"tema_tokens": tema_tokens}
+        return _with_explicit_city({"tema_tokens": tema_tokens})
     if nivel:
-        return {"nivel": nivel}
-    return {}
+        return _with_explicit_city({"nivel": nivel})
+    return _with_explicit_city({})
 # ========================= RANKING/BÚSQUEDA =========================
 
 def _score_code(code: str, intent: dict) -> int:
@@ -921,9 +944,18 @@ def _search_programs(intent: dict) -> list[tuple]:
         return [(intent["code"], of.get("ordinal", i+1)) for i, of in enumerate(prog.get("ofertas", []))]
 
     candidates = set()
+    explicit_city = (intent.get("explicit_city") or {}).get("norm")
+    explicit_city_filter = explicit_city and (intent.get("tema_tokens") or intent.get("tail_text"))
 
     # 3) ubicación primero (si viene)
     had_loc = False
+    if explicit_city_filter:
+        for k, pairs in BY_MUNICIPIO.items():
+            if explicit_city in k or k in explicit_city:
+                for pair in pairs:
+                    candidates.add(pair)
+        had_loc = True
+
     for muni in intent.get("location", {}).get("municipio", []):
         had_loc = True
         key = _norm(muni)
@@ -947,19 +979,22 @@ def _search_programs(intent: dict) -> list[tuple]:
         if candidates:
             # si ya había ubicación, mantenemos sólo los que coinciden con el tema
             candidates = {pair for pair in candidates if pair[0] in topic_codes}
-        else:
+        elif not explicit_city_filter:
             # sin ubicación: añadimos la primera oferta de cada código
             for code in topic_codes:
                 prog = BY_CODE.get(code)
                 if prog and prog.get("ofertas"):
                     candidates.add((code, prog["ofertas"][0]["ordinal"]))
+    elif explicit_city_filter:
+        # no hay coincidencias temáticas dentro de la ciudad explícita
+        candidates = set()
 
     # 5) filtro por nivel (si viene)
     if intent.get("nivel"):
         level = intent["nivel"]
         if candidates:
             candidates = {pair for pair in candidates if BY_CODE.get(pair[0], {}).get("nivel_norm") == level}
-        else:
+        elif not explicit_city_filter:
             # sin candidatos aún: buscar por nivel
             for code, prog in BY_CODE.items():
                 if prog.get("nivel_norm") == level and prog.get("ofertas"):
@@ -1592,6 +1627,14 @@ def generar_respuesta(texto: str, show_all: bool = False, page: int = 0, page_si
     # --- Búsqueda general ---
     results = _search_programs(intent)
     if not results:
+        explicit_city = intent.get("explicit_city") or {}
+        if explicit_city.get("norm") and (intent.get("tema_tokens") or intent.get("tail_text")):
+            city_label = (explicit_city.get("raw") or explicit_city.get("norm") or "").strip() or "esa ciudad"
+            topic_desc = intent.get("tail_text") or " ".join(sorted(intent.get("tema_tokens") or [])) or "tu búsqueda"
+            return (
+                f"No encontré programas en {city_label.title()} que coincidan con {topic_desc}. "
+                "¿Quieres que busque en todo Colombia o en otra ciudad?"
+            )
         return (
             "No estoy seguro de haber entendido. Puedo ayudarte a buscar programas de formación del SENA "
             "y responder dudas como ‘qué es el SENA’, ‘cómo inscribirme’ o ‘cómo continuar el proceso’. "

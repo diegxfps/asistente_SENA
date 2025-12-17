@@ -3,7 +3,7 @@ import unittest
 
 from app.webhook import app
 from app.db import SessionState, User, get_session, init_db
-from app.core import _topic_tokens_from_text
+from app.core import _topic_tokens_from_text, generar_respuesta
 
 
 TEST_NUMBER = "1111"
@@ -67,6 +67,14 @@ class TopicSearchWebhookTest(unittest.TestCase):
     def test_stopwords_keep_sistemas(self):
         tokens = _topic_tokens_from_text("programas sobre sistemas")
         self.assertIn("sistemas", tokens)
+
+    def test_mixed_query_respects_explicit_city(self):
+        reply = generar_respuesta("programación en guapi")
+        self.assertNotIn("Popayán", reply)
+        self.assertIn("Guapi", reply)
+
+        reply_no_matches = generar_respuesta("astronomía en guapi")
+        self.assertIn("No encontré programas en Guapi", reply_no_matches)
 
 
 if __name__ == "__main__":
