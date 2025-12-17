@@ -7,6 +7,8 @@ log = logging.getLogger(__name__)
 if not logging.getLogger().handlers:
     logging.basicConfig(level=logging.INFO)
 
+PAGE_SIZE = 5
+
 # ========================= CARGA DE DATOS =========================
 def _here(*parts):
     return os.path.join(os.path.dirname(__file__), *parts)
@@ -133,7 +135,9 @@ def _tokens(s: str):
 
 
 def _topic_tokens_from_text(text: str) -> set[str]:
-    base_tokens = {t for t in _tokens(text) if t and t not in TOPIC_STOPWORDS}
+    base_tokens = {
+        t for t in _tokens(text) if t and t not in TOPIC_STOPWORDS and t not in LEVEL_STOPWORDS
+    }
     return _expand_topic_tokens(base_tokens)
 
 
@@ -167,6 +171,17 @@ def _extract_explicit_city(q: str) -> tuple[str | None, str | None]:
     city_norm = _norm(city_raw)
     return city_raw or None, city_norm or None
 
+
+LEVEL_STOPWORDS = {
+    "tecnico",
+    "tecnicos",
+    "tecnologo",
+    "tecnologos",
+    "auxiliar",
+    "auxiliares",
+    "operario",
+    "operarios",
+}
 
 TOPIC_STOPWORDS = {
     "programa",
@@ -318,6 +333,13 @@ NIVEL_CANON = {
     "tecnologo":"tecnologo","tecnologos":"tecnologo",
     "auxiliar":"auxiliar","auxiliares":"auxiliar",
     "operario":"operario","operarios":"operario",
+}
+
+NIVEL_PLURAL_LABEL = {
+    "tecnico": "Tecnicos",
+    "tecnologo": "Tecnologos",
+    "auxiliar": "Auxiliares",
+    "operario": "Operarios",
 }
 
 # Alias y sinónimos desde configuración externa
@@ -818,6 +840,12 @@ def _parse_intent(q: str) -> dict:
 
         return munis, sedes
 
+    def _clean_topic_tokens_for_loc(raw_tokens: set[str], loc_parts: list[str]) -> set[str]:
+        loc_tokens = set()
+        for part in loc_parts:
+            loc_tokens.update(_tokens(part))
+        return {t for t in raw_tokens if t not in loc_tokens}
+
     # 4) “en / de / sobre …” (cola de la oración)
     prep = ""
     tail_txt = ""
@@ -830,7 +858,17 @@ def _parse_intent(q: str) -> dict:
             mun_detect, sede_detect = _collect_loc_matches(tail_txt)
             if mun_detect or sede_detect:
                 loc = {"municipio": list(mun_detect)} if mun_detect else {"sede": list(sede_detect)}
-                return _with_explicit_city({"nivel": nivel, "location": loc, "tail_text": _norm(tail_txt)})
+                base_tokens = _topic_tokens_from_text(qn)
+                loc_parts = list(mun_detect) + list(sede_detect)
+                if city_norm:
+                    loc_parts.append(city_norm)
+                tema_tokens = _clean_topic_tokens_for_loc(base_tokens, loc_parts)
+
+                payload = {"nivel": nivel, "location": loc} if nivel else {"location": loc}
+                if tema_tokens:
+                    payload["tema_tokens"] = tema_tokens
+                    payload["tail_text"] = _norm(" ".join(tema_tokens))
+                return _with_explicit_city(payload)
 
         if prep == "sobre":
             # Tema explícito
@@ -1218,7 +1256,7 @@ def ficha_por_codigo(code: str) -> str:
 
 # ========================= LISTADOS =========================
 
-def _format_list(items: list[tuple], page: int = 0, page_size: int = 5) -> str:
+def _format_list(items: list[tuple], page: int = 0, page_size: int = PAGE_SIZE) -> str:
     """
     items: lista de (code, ordinal) ya ordenada.
     Muestra 'page_size' por página (5 por defecto) con ubicación y guía para 'ver más'.
@@ -1590,7 +1628,7 @@ def _match_sena_info(text: str) -> dict | None:
                 return item
     return None
 
-def generar_respuesta(texto: str, show_all: bool = False, page: int = 0, page_size: int = 5) -> str:
+def generar_respuesta(texto: str, show_all: bool = False, page: int = 0, page_size: int = PAGE_SIZE) -> str:
     """
     Motor principal del bot con soporte de paginación 'ver más'.
     """
@@ -1685,10 +1723,18 @@ def generar_respuesta(texto: str, show_all: bool = False, page: int = 0, page_si
     # --- Encabezado ---
     if intent.get("location", {}).get("municipio"):
         mun_txt = next(iter(intent["location"]["municipio"]))
-        header_base = f"Programas en *{mun_txt.title()}*"
+        if intent.get("nivel") and not intent.get("tema_tokens"):
+            nivel_label = NIVEL_PLURAL_LABEL.get(intent["nivel"], intent["nivel"].title())
+            header_base = f"{nivel_label} en *{mun_txt.title()}*"
+        else:
+            header_base = f"Programas en *{mun_txt.title()}*"
     elif intent.get("location", {}).get("sede"):
         sede_txt = next(iter(intent["location"]["sede"]))
-        header_base = f"Programas en *{sede_txt.title()}*"
+        if intent.get("nivel") and not intent.get("tema_tokens"):
+            nivel_label = NIVEL_PLURAL_LABEL.get(intent["nivel"], intent["nivel"].title())
+            header_base = f"{nivel_label} en *{sede_txt.title()}*"
+        else:
+            header_base = f"Programas en *{sede_txt.title()}*"
     elif intent.get("nivel") and intent.get("tema_tokens"):
         topic = _main_topic(intent, qn) or ""
         header_base = f"{intent['nivel'].title()} sobre *{topic}*" if topic else f"Programas del nivel *{intent['nivel']}*"

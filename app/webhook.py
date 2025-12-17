@@ -19,6 +19,7 @@ from app.db import (
 
 # Importa las funciones del core (v2/legacy compatibles)
 from app.core import (
+    PAGE_SIZE,
     generar_respuesta,
     ficha_por_codigo,
     ficha_por_codigo_y_ordinal,
@@ -140,7 +141,7 @@ def _extract_text(msg: dict) -> str:
     return ""
 
 
-def _current_page_items(user_id: str, page_size: int = 10):
+def _current_page_items(user_id: str, page_size: int = PAGE_SIZE):
     st = STATE.get(user_id, {})
     items = st.get("items", [])
     page = st.get("page", 0)
@@ -340,16 +341,16 @@ def incoming():
                 # Siguiente página
                 st["page"] += 1
                 # Volvemos a pedir la respuesta con show_all=True y la página nueva
-                respuesta = generar_respuesta(st["last_query"], show_all=True, page=st["page"], page_size=10)
+                respuesta = generar_respuesta(st["last_query"], show_all=True, page=st["page"], page_size=PAGE_SIZE)
                 STATE[from_number] = st
                 send_and_log(session, user.id, from_number, respuesta)
                 return "ok", 200
 
             # ============= 3) Selección por índice (1..10) en la página actual ===
-            if re.fullmatch(r"[1-9]|10", text_norm) and st.get("items"):
+            if text_norm.isdigit() and st.get("items"):
                 idx = int(text_norm) - 1
-                page_items = _current_page_items(from_number, page_size=10)
-                if 0 <= idx < len(page_items):
+                page_items = _current_page_items(from_number, page_size=PAGE_SIZE)
+                if 0 <= idx < len(page_items) and idx < PAGE_SIZE:
                     code, ord_n = page_items[idx]
                     intent_label, intent_metadata = _prepare_intent(intent_data)
                     _safe_log_interaction(
@@ -388,7 +389,7 @@ def incoming():
             )
 
             # Render principal (página 1)
-            respuesta = generar_respuesta(text, show_all=False, page=0, page_size=10)
+            respuesta = generar_respuesta(text, show_all=False, page=0, page_size=PAGE_SIZE)
             send_and_log(session, user.id, from_number, respuesta)
             return "ok", 200
 
