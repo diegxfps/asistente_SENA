@@ -6,3 +6,4 @@ storage_pdfs/
 storage_simple/hf_cache/
 storage_simple/faiss.*
 storage_simple/programas_enriquecido.json
+storage_simple/app.db
