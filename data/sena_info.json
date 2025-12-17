@@ -11,7 +11,11 @@
   },
   {
     "id": "canales_contacto",
-    "tags": ["contacto sena", "telefono sena", "canales de contacto", "atencion sena"],
-    "answer": "Puedes comunicarte con el SENA Regional Cauca -> Dirección Regional​​ Dirección: Calle 4 # 2-80, Popayán Tels​​​: 57 2 824 3752 - 824 4372."
+    "tags": ["contacto sena", "telefono sena", "canales de contacto", "atencion sena", "como me comunico"],
+    "answer": [
+      "Puedes comunicarte con el SENA Regional Cauca -> Dirección Regional​​ ",
+      "Dirección: Calle 4 # 2-80", 
+      "Popayán Tels​​​: 57 2 824 3752 - 824 4372."
+    ]
   }
 ]
