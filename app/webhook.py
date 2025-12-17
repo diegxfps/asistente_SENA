@@ -174,9 +174,11 @@ def _handle_onboarding(session: Session, user, state_obj, text: str, text_norm: 
                 "¿Cuál es tu número de documento?"
             )
         return (
-            "Antes de ayudarte necesito confirmar que aceptas el tratamiento de datos personales del SENA. "
+            "Antes de ayudarte necesito confirmar que aceptas el tratamiento de datos personales del SENA.\n"
+            "📄 Política de protección de datos (PDF): https://www.sena.edu.co/es-co/transparencia/documents/proteccion_datos_personales_sena_2016.pdf\n\n"
             "Responde *ACEPTO* para continuar o *NO* si no deseas seguir."
         )
+
 
     if state == ONBOARDING_STATES["ASK_DOCUMENT"]:
         if not text_norm:
