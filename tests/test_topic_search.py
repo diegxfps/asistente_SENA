@@ -1,9 +1,10 @@
 import json
+import re
 import unittest
 
 from app.webhook import app
 from app.db import SessionState, User, get_session, init_db
-from app.core import _topic_tokens_from_text, generar_respuesta
+from app.core import PAGE_SIZE, _topic_tokens_from_text, generar_respuesta
 
 
 TEST_NUMBER = "1111"
@@ -75,6 +76,30 @@ class TopicSearchWebhookTest(unittest.TestCase):
 
         reply_no_matches = generar_respuesta("astronomía en guapi")
         self.assertIn("No encontré programas en Guapi", reply_no_matches)
+
+    def test_location_only_query_routes_by_city(self):
+        reply = generar_respuesta("programas en popayan")
+        self.assertIn("popayan", reply.lower())
+        self.assertNotIn("coincidan con popayan", reply.lower())
+
+    def test_level_location_header(self):
+        reply = generar_respuesta("tecnologos en popayan")
+        self.assertIn("tecnologos en *popayan*", reply.lower())
+
+    def test_page_size_is_five(self):
+        replies = [
+            generar_respuesta("programas sobre sistemas"),
+            generar_respuesta("programas en popayan"),
+            generar_respuesta("sistemas en popayan"),
+        ]
+
+        for reply in replies:
+            item_numbers = [
+                int(match.group(1))
+                for match in re.finditer(r"^\s*(\d+)\)", reply, flags=re.MULTILINE)
+            ]
+            self.assertTrue(item_numbers)
+            self.assertLessEqual(max(item_numbers), PAGE_SIZE)
 
 
 if __name__ == "__main__":
