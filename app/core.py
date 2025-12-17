@@ -114,6 +114,19 @@ def _norm(s: str) -> str:
     s = re.sub(r"\s+", " ", s).strip()
     return s
 
+
+def _to_text(x) -> str:
+    """Normaliza cualquier estructura a texto plano para búsquedas."""
+    if x is None:
+        return ""
+    if isinstance(x, str):
+        return x
+    if isinstance(x, (list, tuple, set)):
+        return " ".join(_to_text(i) for i in x)
+    if isinstance(x, dict):
+        return " ".join(_to_text(v) for v in x.values())
+    return str(x)
+
 def _tokens(s: str):
     return [t for t in re.split(r"[^\w]+", _norm(s)) if t]
 
@@ -418,14 +431,14 @@ def _topic_match_score_v2(prog: dict, tema_tokens: set[str], tema_phrase: str) -
     if not (tema_tokens or tema_phrase):
         return 0
 
-    titulo = _norm(prog.get("programa") or prog.get("programa_norm") or "")
+    titulo = _norm(_to_text(prog.get("programa") or prog.get("programa_norm") or ""))
     titulo_toks = set(_tokens(titulo))
     kw = prog.get("palabras_clave") or []
-    kw_norm = " ".join(_norm(k or "") for k in kw)
+    kw_norm = _norm(_to_text(kw))
     kw_toks = set(_tokens(kw_norm))
 
     descripcion = _norm(
-        " ".join(
+        _to_text(
             [
                 prog.get("perfil") or prog.get("perfil_egresado") or "",
                 prog.get("competencias") or "",
