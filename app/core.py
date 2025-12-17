@@ -1,3 +1,4 @@
+import math
 import os, json, re, unicodedata, logging
 from collections import defaultdict
 from pathlib import Path
@@ -1217,19 +1218,22 @@ def ficha_por_codigo(code: str) -> str:
 
 # ========================= LISTADOS =========================
 
-def _format_list(items: list[tuple], page: int = 0, page_size: int = 10) -> str:
+def _format_list(items: list[tuple], page: int = 0, page_size: int = 5) -> str:
     """
     items: lista de (code, ordinal) ya ordenada.
-    Muestra 10 por página con ubicación (si disponible) y guía para 'ver más'.
+    Muestra 'page_size' por página (5 por defecto) con ubicación y guía para 'ver más'.
     """
     if not items:
         return "No encontré coincidencias."
 
     start = page * page_size
+    if start >= len(items):
+        return "No hay más resultados."
+
     chunk = items[start:start + page_size]
 
-    lines = []
-    for i, (code, ord_n) in enumerate(chunk, start=1):
+    cards = []
+    for i, (code, ord_n) in enumerate(chunk, start=start + 1):
         if DATA_FORMAT == "normalized_v2":
             prog = BY_CODE.get(code)
             of = None
@@ -1239,45 +1243,73 @@ def _format_list(items: list[tuple], page: int = 0, page_size: int = 10) -> str:
                         of = o
                         break
 
-            # datos comunes
             offer_count = len((prog or {}).get("ofertas") or [])
             if offer_count > 1:
-                hint = f"\n    💡 +{offer_count-1} ubic. más — escribe *{code}* para ver todas."
+                hint = f"💡 +{offer_count-1} ubic. más — escribe *{code}* para ver todas."
             else:
-                hint = "\n    🔸 Única ubicación disponible."
+                hint = "🔸 Única ubicación disponible."
 
             if prog and of:
-                muni = of.get('municipio','')
-                sede = of.get('sede_nombre','')
-                hor  = of.get('horario','')
-                lines.append(
-                    f"{i}. {prog['programa']} ({prog.get('nivel','')}) — Código [{code}]"
-                    f"\n    📍 {muni} — {sede}"
-                    + (f"\n    🕒 {hor}" if hor else "")
-                    + hint
-                )
+                muni = of.get("municipio", "")
+                sede = of.get("sede_nombre", "")
+                hor = of.get("horario", "")
+                card_lines = [
+                    f"{i}) *{prog['programa']}* ({prog.get('nivel','')}) — Código *{code}*",
+                    f"   📍 {muni} — {sede}",
+                ]
+                if hor:
+                    card_lines.append(f"   🕒 {hor}")
+                card_lines.append(f"   {hint}")
+                cards.append("\n".join(card_lines))
             elif prog:
-                # Si por alguna razón no hallamos la oferta exacta, igual mostramos el hint
-                lines.append(f"{i}. {prog['programa']} — Código [{code}]" + hint)
+                cards.append(
+                    "\n".join(
+                        [
+                            f"{i}) *{prog['programa']}* ({prog.get('nivel','')}) — Código *{code}*",
+                            "   🔸 Única ubicación disponible.",
+                        ]
+                    )
+                )
             else:
-                lines.append(f"{i}. Código [{code}]")
+                cards.append(f"{i}) Código *{code}*")
         else:
-            # Legacy: sin ofertas estructuradas
             p = _nth_by_code(code, ord_n) or _find_by_code(code)
             if p:
                 mun, sede, hor = _loc_fields(p)
                 titulo = p.get("programa") or p.get("nombre") or "Programa"
-                lines.append(
-                    f"{i}. {titulo} ({p.get('nivel','')}) — Código [{code}]"
-                    + (f"\n    📍 {str(mun).strip()} · {str(sede).strip()}" if (mun or sede) else "")
-                    + (f"\n    🕒 {hor}" if hor else "")
-                )
+                card_lines = [
+                    f"{i}) *{titulo}* ({p.get('nivel','')}) — Código *{code}*",
+                ]
+                if mun or sede:
+                    card_lines.append(f"   📍 {str(mun).strip()} · {str(sede).strip()}")
+                if hor:
+                    card_lines.append(f"   🕒 {hor}")
+                cards.append("\n".join(card_lines))
             else:
-                lines.append(f"{i}. Código [{code}]")
+                cards.append(f"{i}) Código *{code}*")
 
-    if len(items) > start + page_size:
-        lines.append("\nEscribe *ver más* para ver más resultados.")
-    return "\n".join(lines)
+    cta = [
+        "📌 Escribe el *código* (ej. *233108*) para ver la ficha completa.",
+        "➡️ Escribe *ver más* para la siguiente página.",
+    ]
+
+    return "\n\n".join(cards + ["\n".join(cta)])
+
+
+def _main_topic(intent: dict, text_norm: str) -> str | None:
+    """Obtiene un tema principal en el mismo orden en que apareció en la consulta."""
+    tema_tokens = _intent_topic_tokens(intent)
+    if not tema_tokens:
+        return None
+
+    ordered = []
+    for tok in _tokens(text_norm):
+        if tok in tema_tokens and tok not in ordered:
+            ordered.append(tok)
+
+    if ordered:
+        return ordered[0]
+    return next(iter(sorted(tema_tokens))) if tema_tokens else None
     
 # ========================= API LEGADA: TOP CODIGOS =========================
 
@@ -1482,8 +1514,13 @@ STATE = {
     "items": [],
     "intent": None,
     "page": 0,
-    "header": "",
+    "header_base": "Resultados",
+    "total_pages": 1,
 }
+
+def _header_text(base_label: str, page_number: int, total_pages: int) -> str:
+    total_pages = max(total_pages, 1)
+    return f"{base_label} (pág. {page_number}/{total_pages}):\n"
 
 GREETING_KEYWORDS = {
     "hola",
@@ -1505,17 +1542,13 @@ GREETING_KEYWORDS = {
     "que tal",
 }
 
-GREETING_RESPONSES = [
-    (
-        "¡Hola! 👋 Soy el asistente del SENA. "
-        "Puedo ayudarte a buscar programas de formación y responder dudas generales como "
-        "‘qué es el SENA’ o ‘cómo inscribirme’. ¿Qué tienes en mente?"
-    ),
-    (
-        "¡Hola! 🙌 Soy tu asistente del SENA. "
-        "Dime si quieres saber sobre programas, horarios o cómo registrarte y te guío."
-    ),
-]
+GREETING_LONG = (
+    "¡Hola! 👋 Soy *Sofía*, la asistente virtual del SENA. "
+    "Puedo ayudarte a buscar programas y responder dudas como inscripción, qué es el SENA "
+    "o cómo continuar el proceso. ¿Qué necesitas hoy?"
+)
+
+GREETING_SHORT = "¡Hola de nuevo! 😊 Soy *Sofía*. ¿Buscamos un programa o tienes una duda del SENA?"
 
 
 def _is_greeting(text_norm: str) -> bool:
@@ -1534,8 +1567,8 @@ def route_general_response(texto: str):
 
     # --- Saludos / small-talk ---
     if _is_greeting(qn):
-        idx = hash(qn) % len(GREETING_RESPONSES)
-        return GREETING_RESPONSES[idx], "greeting"
+        greeting = GREETING_SHORT if (STATE.get("items") or STATE.get("intent")) else GREETING_LONG
+        return greeting, "greeting"
 
     # --- Conocimiento general del SENA ---
     matched = _match_sena_info(texto)
@@ -1557,7 +1590,7 @@ def _match_sena_info(text: str) -> dict | None:
                 return item
     return None
 
-def generar_respuesta(texto: str, show_all: bool = False, page: int = 0, page_size: int = 10) -> str:
+def generar_respuesta(texto: str, show_all: bool = False, page: int = 0, page_size: int = 5) -> str:
     """
     Motor principal del bot con soporte de paginación 'ver más'.
     """
@@ -1574,16 +1607,17 @@ def generar_respuesta(texto: str, show_all: bool = False, page: int = 0, page_si
     # --- Paginación: 'ver más' ---
     if qn in {"ver mas", "ver más", "vermas"} and STATE.get("items"):
         STATE["page"] += 1
+        total_pages = STATE.get("total_pages") or math.ceil(len(STATE.get("items") or []) / page_size) or 1
         body = _format_list(STATE["items"], page=STATE["page"], page_size=page_size)
         if body.startswith("No encontré") or body.startswith("No hay más"):
             STATE["page"] -= 1
             return "No hay más resultados en esta lista."
-        return (STATE.get("header") or f"Resultados (pág. {STATE['page']+1}):\n") + body
+        header_txt = _header_text(STATE.get("header_base", "Resultados"), STATE["page"] + 1, total_pages)
+        return header_txt + body
 
     # --- Saludos / small-talk ---
     if _is_greeting(qn):
-        idx = hash(qn) % len(GREETING_RESPONSES)
-        return GREETING_RESPONSES[idx]
+        return GREETING_SHORT if (STATE.get("items") or STATE.get("intent")) else GREETING_LONG
 
     # --- Conocimiento general del SENA ---
     matched = _match_sena_info(qn)
@@ -1615,13 +1649,17 @@ def generar_respuesta(texto: str, show_all: bool = False, page: int = 0, page_si
         prog = BY_CODE.get(intent["code"]) if DATA_FORMAT == "normalized_v2" else None
         if prog and prog.get("ofertas"):
             items = [(intent["code"], of.get("ordinal", i+1)) for i, of in enumerate(prog.get("ofertas"))]
+            total_pages = math.ceil(len(items) / page_size) or 1
+            header_base = f"Ubicaciones para *{prog['programa']}*"
             STATE.update({
                 "items": items,
                 "intent": intent,
                 "page": 0,
-                "header": f"Ubicaciones para *{prog['programa']}* (pág. 1):\n"
+                "header_base": header_base,
+                "total_pages": total_pages,
             })
-            return STATE["header"] + _format_list(items, page=0, page_size=page_size)
+            header_txt = _header_text(header_base, 1, total_pages)
+            return header_txt + _format_list(items, page=0, page_size=page_size)
         return ficha_por_codigo(intent["code"])
 
     # --- Búsqueda general ---
@@ -1636,35 +1674,42 @@ def generar_respuesta(texto: str, show_all: bool = False, page: int = 0, page_si
                 "¿Quieres que busque en todo Colombia o en otra ciudad?"
             )
         return (
-            "No estoy seguro de haber entendido. Puedo ayudarte a buscar programas de formación del SENA "
-            "y responder dudas como ‘qué es el SENA’, ‘cómo inscribirme’ o ‘cómo continuar el proceso’. "
-            "¿Me repites tu pregunta con otras palabras?"
+            "Mmm, no lo pude entender del todo 😅\n"
+            "Prueba con una de estas opciones:\n"
+            "- “programas sobre sistemas”\n"
+            "- “programas en Popayán”\n"
+            "- “inscripción” o “qué es el SENA”\n\n"
+            "¿Qué estás buscando: tema o ciudad?"
         )
 
     # --- Encabezado ---
     if intent.get("location", {}).get("municipio"):
         mun_txt = next(iter(intent["location"]["municipio"]))
-        header = f"Programas en *{mun_txt.title()}* (pág. 1):\n"
+        header_base = f"Programas en *{mun_txt.title()}*"
     elif intent.get("location", {}).get("sede"):
         sede_txt = next(iter(intent["location"]["sede"]))
-        header = f"Programas en *{sede_txt.title()}* (pág. 1):\n"
+        header_base = f"Programas en *{sede_txt.title()}*"
     elif intent.get("nivel") and intent.get("tema_tokens"):
-        tema_txt = " ".join(sorted(intent["tema_tokens"]))
-        header = f"{intent['nivel'].title()} sobre *{tema_txt}* (pág. 1):\n"
+        topic = _main_topic(intent, qn) or ""
+        header_base = f"{intent['nivel'].title()} sobre *{topic}*" if topic else f"Programas del nivel *{intent['nivel']}*"
     elif intent.get("tema_tokens"):
-        tema_txt = " ".join(t for t in _tokens(qn) if t not in {"en", "de", "sobre"})
-        header = f"Resultados para el tema *{tema_txt}* (pág. 1):\n"
+        topic = _main_topic(intent, qn)
+        header_base = f"Programas sobre *{topic}*" if topic else "Resultados"
     elif intent.get("nivel"):
-        header = f"Programas del nivel *{intent['nivel']}* (pág. 1):\n"
+        header_base = f"Programas del nivel *{intent['nivel']}*"
     else:
-        header = "Resultados (pág. 1):\n"
+        header_base = "Resultados"
+
+    total_pages = math.ceil(len(results) / page_size) or 1
+    header = _header_text(header_base, 1, total_pages)
 
     # --- Guardar estado (para 'ver más') ---
     STATE.update({
         "items": results,
         "intent": intent,
         "page": 0,
-        "header": header
+        "header_base": header_base,
+        "total_pages": total_pages,
     })
 
     # --- Página inicial ---
